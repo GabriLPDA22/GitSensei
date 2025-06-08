@@ -1,0 +1,319 @@
+// Responsive mixins
+@mixin mobile-first($size) {
+  @media (min-width: #{$size}) {
+    @content;
+  }
+}
+
+@mixin mobile-only {
+  @media (max-width: #{$screen-md - 1px}) {
+    @content;
+  }
+}
+
+@mixin tablet-up {
+  @media (min-width: #{$screen-md}) {
+    @content;
+  }
+}
+
+@mixin desktop-up {
+  @media (min-width: #{$screen-lg}) {
+    @content;
+  }
+}
+
+@mixin large-desktop-up {
+  @media (min-width: #{$screen-xl}) {
+    @content;
+  }
+}
+
+// BEM mixins
+@mixin element($element) {
+  &__#{$element} {
+    @content;
+  }
+}
+
+@mixin modifier($modifier) {
+  &--#{$modifier} {
+    @content;
+  }
+}
+
+@mixin when($state) {
+  &.is-#{$state} {
+    @content;
+  }
+}
+
+// Animation mixins
+@mixin transition($properties: all, $duration: 0.3s, $timing: ease-out) {
+  transition: $properties $duration $timing;
+}
+
+@mixin fade-in($duration: 0.5s) {
+  animation: fadeIn $duration ease-in-out;
+}
+
+@mixin slide-up($duration: 0.3s) {
+  animation: slideUp $duration ease-out;
+}
+
+// Visual effect mixins
+@mixin glass-effect {
+  background: rgba($secondary-dark, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba($border, 0.2);
+}
+
+@mixin gradient-border {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    background: linear-gradient(45deg, $accent-blue, $accent-green);
+    border-radius: inherit;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+  }
+}
+
+// Terminal styling
+@mixin terminal-style {
+  font-family: 'JetBrains Mono', monospace;
+  background: $primary-dark;
+  color: $text-primary;
+  border: 1px solid $border;
+}
+
+@mixin terminal-prompt {
+  color: $accent-green;
+  font-weight: 500;
+  &::after {
+    content: '$ ';
+    color: $text-secondary;
+  }
+}
+
+// Layout mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin absolute-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@mixin container-padding {
+  padding-left: 1rem;
+  padding-right: 1rem;
+
+  @include tablet-up {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+
+  @include desktop-up {
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+
+// Button mixins
+@mixin button-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  @include transition();
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba($accent-blue, 0.5);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@mixin button-primary {
+  @include button-base;
+  background: $accent-blue;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: #4969ed;
+    transform: translateY(-1px);
+  }
+}
+
+@mixin button-success {
+  @include button-base;
+  background: $accent-green;
+  color: $primary-dark;
+
+  &:hover:not(:disabled) {
+    background: #2ea043;
+    transform: translateY(-1px);
+  }
+}
+
+// Card mixins
+@mixin card-base {
+  background: $secondary-dark;
+  border: 1px solid $border;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  @include transition();
+}
+
+@mixin card-interactive {
+  @include card-base;
+  cursor: pointer;
+
+  &:hover {
+    border-color: $accent-blue;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+}
+
+// Form mixins
+@mixin input-base {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: $tertiary-dark;
+  border: 1px solid $border;
+  border-radius: 0.5rem;
+  color: $text-primary;
+  font-size: 0.875rem;
+  @include transition();
+
+  &:focus {
+    outline: none;
+    border-color: $accent-blue;
+    box-shadow: 0 0 0 2px rgba($accent-blue, 0.2);
+  }
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+// Progress mixins
+@mixin progress-bar($color: $accent-green) {
+  width: 100%;
+  height: 0.5rem;
+  background: $border;
+  border-radius: 0.25rem;
+  overflow: hidden;
+
+  &__fill {
+    height: 100%;
+    background: $color;
+    border-radius: inherit;
+    @include transition(width, 0.6s, ease-out);
+  }
+}
+
+// Badge mixins
+@mixin badge-base {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@mixin badge-success {
+  @include badge-base;
+  background: rgba($success, 0.1);
+  color: $success;
+  border: 1px solid rgba($success, 0.2);
+}
+
+@mixin badge-warning {
+  @include badge-base;
+  background: rgba($warning, 0.1);
+  color: $warning;
+  border: 1px solid rgba($warning, 0.2);
+}
+
+// Scrollbar mixins
+@mixin custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $secondary-dark;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $border;
+    border-radius: 3px;
+
+    &:hover {
+      background: $text-secondary;
+    }
+  }
+}
+
+// Animation keyframes (to be used with the animation mixins)
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}

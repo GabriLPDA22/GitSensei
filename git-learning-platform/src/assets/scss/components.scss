@@ -1,0 +1,61 @@
+// Base component styles using BEM
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-opacity-50;
+
+  @include element('primary') {
+    @apply bg-accent-blue text-white hover:bg-blue-600 focus:ring-accent-blue;
+  }
+
+  @include element('success') {
+    @apply bg-accent-green text-primary-dark hover:bg-green-400 focus:ring-accent-green;
+  }
+
+  @include element('secondary') {
+    @apply bg-border text-text-primary hover:bg-gray-600 focus:ring-border;
+  }
+
+  @include modifier('large') {
+    @apply px-6 py-3 text-lg;
+  }
+
+  @include modifier('small') {
+    @apply px-3 py-1 text-sm;
+  }
+}
+
+.card {
+  @apply bg-secondary-dark rounded-lg p-6 border border-border;
+
+  @include element('header') {
+    @apply flex items-center justify-between mb-4;
+  }
+
+  @include element('title') {
+    @apply text-xl font-semibold text-text-primary;
+  }
+
+  @include element('content') {
+    @apply text-text-secondary;
+  }
+
+  @include modifier('interactive') {
+    @apply hover:border-accent-blue transition-colors cursor-pointer;
+  }
+
+  @include modifier('completed') {
+    @apply border-accent-green bg-opacity-10;
+  }
+}
+
+.terminal {
+  @include terminal-style;
+  @apply rounded-lg overflow-hidden;
+
+  @include element('header') {
+    @apply bg-secondary-dark px-4 py-3 flex items-center justify-between border-b border-border;
+  }
+
+  @include element('body') {
+    @apply p-4 min-h-80 max-h-96 overflow-y-auto;
+  }
+}
