@@ -17,14 +17,8 @@
 
             <!-- Desktop Navigation -->
             <div class="navbar__nav" :class="{ 'navbar__nav--open': isMobileMenuOpen }">
-              <router-link
-                v-for="link in navigationLinks"
-                :key="link.name"
-                :to="link.path"
-                class="nav-link"
-                :class="{ 'nav-link--active': $route.path === link.path }"
-                @click="closeMobileMenu"
-              >
+              <router-link v-for="link in visibleNavigationLinks" :key="link.name" :to="link.path" class="nav-link"
+                :class="{ 'nav-link--active': $route.path === link.path }" @click="closeMobileMenu">
                 <component :is="link.icon" class="w-4 h-4" />
                 {{ link.name }}
               </router-link>
@@ -33,31 +27,23 @@
             <!-- User Actions -->
             <div class="navbar__actions">
               <!-- Theme Toggle -->
-              <button
-                class="icon-button"
-                @click="toggleTheme"
-                title="Cambiar tema"
-              >
+              <button class="icon-button" @click="toggleTheme" title="Cambiar tema">
                 <Moon v-if="isDarkMode" class="w-5 h-5" />
                 <Sun v-else class="w-5 h-5" />
               </button>
 
               <!-- Notifications (placeholder) -->
-              <button class="icon-button" title="Notificaciones">
+              <button v-if="isAuthenticated" class="icon-button" title="Notificaciones">
                 <Bell class="w-5 h-5" />
               </button>
 
-              <!-- User Profile -->
-              <router-link to="/profile" class="user-avatar">
-                <User class="w-5 h-5" />
-              </router-link>
+              <!-- Auth Components -->
+              <UserMenu v-if="isAuthenticated" />
+              <LoginButton v-else class="login-button--navbar" />
 
               <!-- Mobile Menu Toggle -->
-              <button
-                class="mobile-menu-toggle"
-                @click="toggleMobileMenu"
-                :class="{ 'mobile-menu-toggle--open': isMobileMenuOpen }"
-              >
+              <button class="mobile-menu-toggle" @click="toggleMobileMenu"
+                :class="{ 'mobile-menu-toggle--open': isMobileMenuOpen }">
                 <Menu class="w-6 h-6" />
                 <X class="w-6 h-6" />
               </button>
@@ -70,12 +56,7 @@
     <!-- Main Content -->
     <main class="app-main">
       <router-view v-slot="{ Component, route }">
-        <transition
-          :name="getTransitionName(route)"
-          mode="out-in"
-          @enter="onPageEnter"
-          @leave="onPageLeave"
-        >
+        <transition :name="getTransitionName(route)" mode="out-in" @enter="onPageEnter" @leave="onPageLeave">
           <component :is="Component" :key="route.path" />
         </transition>
       </router-view>
@@ -149,12 +130,7 @@
     <!-- Toast Notifications -->
     <div class="toast-container">
       <transition-group name="toast" tag="div">
-        <div
-          v-for="toast in toasts"
-          :key="toast.id"
-          class="toast"
-          :class="`toast--${toast.type}`"
-        >
+        <div v-for="toast in toasts" :key="toast.id" class="toast" :class="`toast--${toast.type}`">
           <component :is="getToastIcon(toast.type)" class="w-5 h-5" />
           <span class="toast__message">{{ toast.message }}</span>
           <button class="toast__close" @click="removeToast(toast.id)">
@@ -169,14 +145,24 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { storeToRefs } from 'pinia'
 import {
   GitBranch, Home, BarChart3, User, BookOpen, Terminal,
   Moon, Sun, Bell, Menu, X, Github, Twitter, Linkedin,
   CheckCircle, AlertCircle, Info, AlertTriangle
 } from 'lucide-vue-next'
 
+// Importar componentes de auth
+import LoginButton from '@/components/auth/LoginButton.vue'
+import UserMenu from '@/components/auth/UserMenu.vue'
+
 const route = useRoute()
 const router = useRouter()
+
+// Auth store
+const authStore = useAuthStore()
+const { isAuthenticated, userName } = storeToRefs(authStore)
 
 // Estado reactivo
 const isScrolled = ref(false)
@@ -185,17 +171,28 @@ const isDarkMode = ref(true)
 const isLoading = ref(false)
 const toasts = ref([])
 
-// Navegación
-const navigationLinks = ref([
-  { name: 'Inicio', path: '/', icon: Home },
-  { name: 'Dashboard', path: '/dashboard', icon: BarChart3 },
-  { name: 'Ejercicios', path: '/exercises', icon: Terminal },
-  { name: 'Comandos', path: '/commands', icon: BookOpen }
+// Navegación base
+const baseNavigationLinks = ref([
+  { name: 'Inicio', path: '/', icon: Home, public: true },
+  { name: 'Comandos', path: '/commands', icon: BookOpen, public: true },
+  { name: 'Dashboard', path: '/dashboard', icon: BarChart3, public: false },
+  { name: 'Ejercicios', path: '/exercises', icon: Terminal, public: false }
 ])
+
+// Links visibles según autenticación
+const visibleNavigationLinks = computed(() => {
+  if (isAuthenticated.value) {
+    // Usuario logueado: mostrar todos los links
+    return baseNavigationLinks.value
+  } else {
+    // Usuario no logueado: solo links públicos
+    return baseNavigationLinks.value.filter(link => link.public)
+  }
+})
 
 // Computed
 const isFullscreenRoute = computed(() => {
-  const fullscreenRoutes = ['/module']
+  const fullscreenRoutes = ['/module', '/auth/callback']
   return fullscreenRoutes.some(route => route.path.startsWith(route))
 })
 
@@ -222,6 +219,7 @@ const getTransitionName = (route) => {
   // Diferentes transiciones según la ruta
   if (route.path === '/') return 'fade'
   if (route.path.startsWith('/module')) return 'slide-left'
+  if (route.path.startsWith('/auth')) return 'fade'
   return 'slide-up'
 }
 
@@ -266,6 +264,9 @@ const getToastIcon = (type) => {
 
 // Lifecycle
 onMounted(() => {
+  // Restaurar usuario del localStorage
+  authStore.restoreUser()
+
   window.addEventListener('scroll', handleScroll)
 
   // Cerrar menú móvil al cambiar de tamaño de ventana
@@ -277,7 +278,11 @@ onMounted(() => {
 
   // Toast de bienvenida
   setTimeout(() => {
-    addToast('¡Bienvenido a GitLearning! 🚀', 'success')
+    if (isAuthenticated.value) {
+      addToast(`¡Bienvenido de vuelta, ${userName.value}! 👋`, 'success')
+    } else {
+      addToast('¡Bienvenido a GitLearning! 🚀', 'success')
+    }
   }, 1000)
 })
 
@@ -423,21 +428,6 @@ window.addToast = addToast
   }
 }
 
-.user-avatar {
-  @include flex-center;
-  width: 2.5rem;
-  height: 2.5rem;
-  background: linear-gradient(135deg, $accent-blue, $accent-green);
-  border-radius: 50%;
-  color: white;
-  text-decoration: none;
-  @include transition();
-
-  &:hover {
-    transform: scale(1.1);
-  }
-}
-
 .mobile-menu-toggle {
   @include flex-center;
   width: 2.5rem;
@@ -471,6 +461,21 @@ window.addToast = addToast
     .lucide:last-child {
       opacity: 1;
       transform: rotate(0deg);
+    }
+  }
+}
+
+// Estilo específico para el LoginButton en navbar
+.login-button--navbar {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+
+  :deep(.login-button__content) {
+    gap: 0.375rem;
+
+    .lucide {
+      width: 1rem;
+      height: 1rem;
     }
   }
 }
@@ -747,7 +752,12 @@ window.addToast = addToast
 
 // Animations
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
