@@ -1,10 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
 
 // Importar vistas
 import Home from "@/views/Home.vue";
 import Dashboard from "@/views/Dashboard.vue";
 import ModuleView from "@/views/ModuleView.vue";
 import Profile from "@/views/Profile.vue";
+import AuthCallback from "@/views/AuthCallback.vue";
 
 const routes = [
   {
@@ -17,13 +19,22 @@ const routes = [
     },
   },
   {
+    path: "/auth/callback",
+    name: "AuthCallback",
+    component: AuthCallback,
+    meta: {
+      title: "Autenticando...",
+      description: "Completando autenticación con GitHub",
+    },
+  },
+  {
     path: "/dashboard",
     name: "Dashboard",
     component: Dashboard,
     meta: {
       title: "Dashboard - Git Learning Platform",
       description: "Tu progreso de aprendizaje en Git y GitHub",
-      requiresAuth: false, // Por ahora sin autenticación
+      requiresAuth: true,
     },
   },
   {
@@ -33,7 +44,7 @@ const routes = [
     meta: {
       title: "Módulo - Git Learning Platform",
       description: "Aprende Git paso a paso",
-      requiresAuth: false,
+      requiresAuth: true,
     },
     // Validar que el moduleId existe
     beforeEnter: (to, from, next) => {
@@ -59,7 +70,7 @@ const routes = [
     meta: {
       title: "Perfil - Git Learning Platform",
       description: "Tu perfil y estadísticas de aprendizaje",
-      requiresAuth: false,
+      requiresAuth: true,
     },
   },
   // Rutas adicionales
@@ -70,6 +81,7 @@ const routes = [
     meta: {
       title: "Ejercicios - Git Learning Platform",
       description: "Practica con ejercicios interactivos",
+      requiresAuth: true,
     },
   },
   {
@@ -115,7 +127,7 @@ const router = createRouter({
 });
 
 // Guards globales
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   // Actualizar el título de la página
   if (to.meta.title) {
     document.title = to.meta.title;
@@ -129,7 +141,35 @@ router.beforeEach((to, from, next) => {
     }
   }
 
-  // Por ahora no hay autenticación, permitir todas las rutas
+  // Verificar autenticación
+  if (to.meta.requiresAuth) {
+    const authStore = useAuthStore();
+
+    // Restaurar usuario si existe en localStorage
+    if (!authStore.isAuthenticated) {
+      authStore.restoreUser();
+    }
+
+    // Si sigue sin estar autenticado, redirect a home
+    if (!authStore.isAuthenticated) {
+      next({
+        path: "/",
+        query: { redirect: to.fullPath }, // Guardar donde quería ir
+      });
+      return;
+    }
+
+    // Verificar que la sesión sigue válida
+    const isValidSession = await authStore.validateSession();
+    if (!isValidSession) {
+      next({
+        path: "/",
+        query: { redirect: to.fullPath },
+      });
+      return;
+    }
+  }
+
   next();
 });
 
