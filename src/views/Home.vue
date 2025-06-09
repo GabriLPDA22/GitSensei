@@ -1,196 +1,211 @@
 <template>
   <div class="home">
-    <!-- Hero Section -->
-    <section class="hero">
-      <div class="container">
-        <div class="hero__content">
-          <div class="hero__text">
-            <h1 class="hero__title">
-              Domina <span class="gradient-text">Git & GitHub</span>
-              <br>como un profesional
-            </h1>
-            <p class="hero__subtitle">
-              La plataforma educativa más interactiva para aprender control de versiones.
-              Simulador de terminal, ejercicios prácticos y un sistema de gamificación que te mantendrá motivado.
-            </p>
-            <div class="hero__actions">
-              <button @click="startLearning" class="btn btn--primary btn--large">
-                <Code class="w-5 h-5 mr-2" />
-                Empezar Ahora
-              </button>
-              <button @click="viewDemo" class="btn btn--secondary btn--large">
-                <Play class="w-5 h-5 mr-2" />
-                Ver Demo
-              </button>
-            </div>
-            <div class="hero__stats">
-              <div class="stat">
-                <span class="stat__number">6</span>
-                <span class="stat__label">Módulos</span>
-              </div>
-              <div class="stat">
-                <span class="stat__number">50+</span>
-                <span class="stat__label">Ejercicios</span>
-              </div>
-              <div class="stat">
-                <span class="stat__number">100%</span>
-                <span class="stat__label">Gratis</span>
-              </div>
-            </div>
-          </div>
-          <div class="hero__visual">
-            <div class="terminal-preview">
-              <div class="terminal-preview__header">
-                <div class="terminal-preview__dots">
-                  <span class="dot dot--red"></span>
-                  <span class="dot dot--yellow"></span>
-                  <span class="dot dot--green"></span>
-                </div>
-                <span class="terminal-preview__title">Git Learning Terminal</span>
-              </div>
-              <div class="terminal-preview__body">
-                <div class="terminal-line">
-                  <span class="prompt">user@git-learning:~/proyecto$</span>
-                  <span class="command">git init</span>
-                </div>
-                <div class="terminal-line output">
-                  Inicializado repositorio Git vacío en .git/
-                </div>
-                <div class="terminal-line">
-                  <span class="prompt">user@git-learning:~/proyecto$</span>
-                  <span class="command typing">git add .</span>
-                  <span class="cursor"></span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- Introducción Personal con GitHub Real -->
+    <GitHubIntro
+      v-if="showIntro"
+      @start-journey="handleStartJourney"
+    />
 
-    <!-- Features Section -->
-    <section class="features">
-      <div class="container">
-        <h2 class="section__title">¿Por qué elegir nuestra plataforma?</h2>
-        <div class="features__grid">
-          <div class="feature-card">
-            <div class="feature-card__icon">
-              <Terminal class="w-8 h-8" />
-            </div>
-            <h3 class="feature-card__title">Simulador Real</h3>
-            <p class="feature-card__description">
-              Practica comandos Git en un terminal interactivo sin riesgo.
-              Aprende haciendo con feedback instantáneo.
-            </p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card__icon">
-              <Trophy class="w-8 h-8" />
-            </div>
-            <h3 class="feature-card__title">Gamificación</h3>
-            <p class="feature-card__description">
-              Sistema de insignias, puntos y desafíos que te motivan a seguir aprendiendo.
-            </p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card__icon">
-              <Users class="w-8 h-8" />
-            </div>
-            <h3 class="feature-card__title">Enfoque Profesional</h3>
-            <p class="feature-card__description">
-              Aprende las mejores prácticas que usan los equipos de desarrollo profesionales.
-            </p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-card__icon">
-              <Smartphone class="w-8 h-8" />
-            </div>
-            <h3 class="feature-card__title">Mobile First</h3>
-            <p class="feature-card__description">
-              Diseño responsive que funciona perfectamente en cualquier dispositivo.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Learning Path Section -->
-    <section class="learning-path">
-      <div class="container">
-        <h2 class="section__title">Tu Ruta de Aprendizaje</h2>
-        <div class="path__container">
-          <div
-            v-for="(module, index) in learningModules"
-            :key="module.id"
-            class="path__module"
-            :class="{ 'path__module--completed': module.completed }"
-          >
-            <div class="path__connector" v-if="index < learningModules.length - 1"></div>
-            <div class="module-card">
-              <div class="module-card__header">
-                <div class="module-card__icon" :style="{ backgroundColor: module.color }">
-                  <component :is="module.icon" class="w-6 h-6" />
+    <!-- Contenido Principal (tu Home original) -->
+    <div v-else>
+      <!-- Hero Section -->
+      <section class="hero">
+        <div class="container">
+          <div class="hero__content">
+            <div class="hero__text">
+              <h1 class="hero__title">
+                Domina <span class="gradient-text">Git & GitHub</span>
+                <br>como un profesional
+              </h1>
+              <p class="hero__subtitle">
+                La plataforma educativa más interactiva para aprender control de versiones.
+                Simulador de terminal, ejercicios prácticos y un sistema de gamificación que te mantendrá motivado.
+              </p>
+              <div class="hero__actions">
+                <button @click="startLearning" class="btn btn--primary btn--large">
+                  <Code class="w-5 h-5 mr-2" />
+                  Empezar Ahora
+                </button>
+                <button @click="viewDemo" class="btn btn--secondary btn--large">
+                  <Play class="w-5 h-5 mr-2" />
+                  Ver Demo
+                </button>
+              </div>
+              <div class="hero__stats">
+                <div class="stat">
+                  <span class="stat__number">6</span>
+                  <span class="stat__label">Módulos</span>
                 </div>
-                <div class="module-card__level">{{ module.level }}</div>
+                <div class="stat">
+                  <span class="stat__number">50+</span>
+                  <span class="stat__label">Ejercicios</span>
+                </div>
+                <div class="stat">
+                  <span class="stat__number">100%</span>
+                  <span class="stat__label">Gratis</span>
+                </div>
               </div>
-              <h3 class="module-card__title">{{ module.title }}</h3>
-              <p class="module-card__description">{{ module.description }}</p>
-              <div class="module-card__meta">
-                <span class="meta__duration">
-                  <Clock class="w-4 h-4" />
-                  {{ module.duration }}
-                </span>
-                <span class="meta__exercises">
-                  <BookOpen class="w-4 h-4" />
-                  {{ module.exercises }} ejercicios
-                </span>
+            </div>
+            <div class="hero__visual">
+              <div class="terminal-preview">
+                <div class="terminal-preview__header">
+                  <div class="terminal-preview__dots">
+                    <span class="dot dot--red"></span>
+                    <span class="dot dot--yellow"></span>
+                    <span class="dot dot--green"></span>
+                  </div>
+                  <span class="terminal-preview__title">Git Learning Terminal</span>
+                </div>
+                <div class="terminal-preview__body">
+                  <div class="terminal-line">
+                    <span class="prompt">gabriel@git-learning:~/proyecto$</span>
+                    <span class="command">git init</span>
+                  </div>
+                  <div class="terminal-line output">
+                    Inicializado repositorio Git vacío en .git/
+                  </div>
+                  <div class="terminal-line">
+                    <span class="prompt">gabriel@git-learning:~/proyecto$</span>
+                    <span class="command typing">git add .</span>
+                    <span class="cursor"></span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- CTA Section -->
-    <section class="cta">
-      <div class="container">
-        <div class="cta__content">
-          <h2 class="cta__title">¿Listo para convertirte en un experto en Git?</h2>
-          <p class="cta__subtitle">
-            Únete a miles de desarrolladores que ya dominan el control de versiones
-          </p>
-          <button @click="startLearning" class="btn btn--success btn--large">
-            <Rocket class="w-5 h-5 mr-2" />
-            Comenzar Mi Viaje
-          </button>
+      <!-- Features Section -->
+      <section class="features">
+        <div class="container">
+          <h2 class="section__title">¿Por qué elegir nuestra plataforma?</h2>
+          <div class="features__grid">
+            <div class="feature-card">
+              <div class="feature-card__icon">
+                <Terminal class="w-8 h-8" />
+              </div>
+              <h3 class="feature-card__title">Simulador Real</h3>
+              <p class="feature-card__description">
+                Practica comandos Git en un terminal interactivo sin riesgo.
+                Aprende haciendo con feedback instantáneo.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-card__icon">
+                <Trophy class="w-8 h-8" />
+              </div>
+              <h3 class="feature-card__title">Gamificación</h3>
+              <p class="feature-card__description">
+                Sistema de insignias, puntos y desafíos que te motivan a seguir aprendiendo.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-card__icon">
+                <Users class="w-8 h-8" />
+              </div>
+              <h3 class="feature-card__title">Enfoque Profesional</h3>
+              <p class="feature-card__description">
+                Aprende las mejores prácticas que usan los equipos de desarrollo profesionales.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-card__icon">
+                <Smartphone class="w-8 h-8" />
+              </div>
+              <h3 class="feature-card__title">Mobile First</h3>
+              <p class="feature-card__description">
+                Diseño responsive que funciona perfectamente en cualquier dispositivo.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <!-- Learning Path Section -->
+      <section class="learning-path">
+        <div class="container">
+          <h2 class="section__title">Tu Ruta de Aprendizaje</h2>
+          <div class="path__container">
+            <div
+              v-for="(module, index) in learningModules"
+              :key="module.id"
+              class="path__module"
+              :class="{ 'path__module--completed': module.completed }"
+            >
+              <div class="path__connector" v-if="index < learningModules.length - 1"></div>
+              <div class="module-card">
+                <div class="module-card__header">
+                  <div class="module-card__icon" :style="{ backgroundColor: module.color }">
+                    <component :is="module.icon" class="w-6 h-6" />
+                  </div>
+                  <div class="module-card__level">{{ module.level }}</div>
+                </div>
+                <h3 class="module-card__title">{{ module.title }}</h3>
+                <p class="module-card__description">{{ module.description }}</p>
+                <div class="module-card__meta">
+                  <span class="meta__duration">
+                    <Clock class="w-4 h-4" />
+                    {{ module.duration }}
+                  </span>
+                  <span class="meta__exercises">
+                    <BookOpen class="w-4 h-4" />
+                    {{ module.exercises }} ejercicios
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA Section -->
+      <section class="cta">
+        <div class="container">
+          <div class="cta__content">
+            <h2 class="cta__title">¿Listo para convertirte en un experto en Git?</h2>
+            <p class="cta__subtitle">
+              Únete a miles de desarrolladores que ya dominan el control de versiones
+            </p>
+            <button @click="startLearning" class="btn btn--success btn--large">
+              <Rocket class="w-5 h-5 mr-2" />
+              Comenzar Mi Viaje
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Code,
-  Play,
-  Terminal,
-  Trophy,
-  Users,
-  Smartphone,
-  Clock,
-  BookOpen,
-  Rocket,
-  GitBranch,
-  FileText,
-  Share2,
-  Zap,
-  Database,
-  Book
+  Code, Play, Terminal, Trophy, Users, Smartphone, Clock, BookOpen, Rocket,
+  GitBranch, FileText, Share2, Zap, Database, Book
 } from 'lucide-vue-next'
 
+// Importar el componente de introducción
+import GitHubIntro from '@/components/GitHubIntro.vue'
+
 const router = useRouter()
+
+// Estado de la introducción
+const showIntro = ref(true)
+
+// Comprobar si ya vio la intro
+onMounted(() => {
+  const hasSeenIntro = localStorage.getItem('hasSeenGitIntro')
+  if (hasSeenIntro) {
+    showIntro.value = false
+  }
+})
+
+// Manejar cuando el usuario completa la intro
+const handleStartJourney = () => {
+  showIntro.value = false
+}
 
 // Datos de los módulos de aprendizaje
 const learningModules = ref([
@@ -268,7 +283,6 @@ const startLearning = () => {
 }
 
 const viewDemo = () => {
-  // Implementar demo modal o scroll a sección
   const featuresSection = document.querySelector('.features')
   featuresSection?.scrollIntoView({ behavior: 'smooth' })
 }
