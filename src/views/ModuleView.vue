@@ -1133,7 +1133,7 @@ watch(() => route.params.moduleId, () => {
   @include transition();
 
   &:hover:not(:disabled) {
-    background: lighten($tertiary-dark, 5%);
+    background: #2a313a;
   }
 
   &--selected {

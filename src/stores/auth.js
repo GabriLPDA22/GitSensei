@@ -1,43 +1,5 @@
-import { defineStore } from "pinia";
+// src/stores/auth.js - ACTUALIZADO PARA TU BACKEND
 
-export const useUserStore = defineStore("user", {
-  state: () => ({
-    progress: {
-      currentModule: 0,
-      completedModules: [],
-      totalScore: 0,
-      badges: [],
-    },
-    preferences: {
-      theme: "dark",
-      language: "es",
-    },
-  }),
-
-  getters: {
-    completionPercentage: (state) => {
-      const totalModules = 6; // Módulos 0-5
-      return Math.round(
-        (state.progress.completedModules.length / totalModules) * 100
-      );
-    },
-  },
-
-  actions: {
-    updateProgress(moduleId, score) {
-      if (!this.progress.completedModules.includes(moduleId)) {
-        this.progress.completedModules.push(moduleId);
-        this.progress.totalScore += score;
-      }
-    },
-
-    earnBadge(badgeId) {
-      if (!this.progress.badges.includes(badgeId)) {
-        this.progress.badges.push(badgeId);
-      }
-    },
-  },
-});
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 
@@ -46,6 +8,10 @@ export const useAuthStore = defineStore("auth", () => {
   const user = ref(null);
   const isLoading = ref(false);
   const error = ref(null);
+
+  // 🔧 URL de tu backend - AJUSTAR SEGÚN TU CONFIGURACIÓN
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
   // Getters
   const isAuthenticated = computed(() => !!user.value);
@@ -89,13 +55,15 @@ export const useAuthStore = defineStore("auth", () => {
       return;
     }
 
+    console.log("🔐 Iniciando OAuth con GitHub...");
+
     const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
 
     // Redirect a GitHub
     window.location.href = authUrl;
   };
 
-  // Procesar callback de GitHub
+  // Procesar callback de GitHub usando TU BACKEND
   const handleGitHubCallback = async (code) => {
     if (!code) {
       setError("Código de autorización no recibido");
@@ -106,9 +74,10 @@ export const useAuthStore = defineStore("auth", () => {
       setLoading(true);
       clearError();
 
-      // En un proyecto real, esto debería ir a tu backend
-      // Por ahora usaremos un proxy o service worker
-      const tokenResponse = await fetch("/api/auth/github", {
+      console.log("🔄 Procesando callback con código:", code);
+
+      // 🚀 LLAMADA A TU BACKEND
+      const tokenResponse = await fetch(`${API_BASE_URL}/auth/github`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -116,17 +85,22 @@ export const useAuthStore = defineStore("auth", () => {
         body: JSON.stringify({ code }),
       });
 
+      console.log("📨 Respuesta del backend:", tokenResponse.status);
+
       if (!tokenResponse.ok) {
-        throw new Error("Error obteniendo token de acceso");
+        const errorData = await tokenResponse.json();
+        throw new Error(errorData.error || "Error obteniendo token de acceso");
       }
 
       const { access_token } = await tokenResponse.json();
+      console.log("✅ Token obtenido exitosamente");
 
-      // Obtener datos del usuario
+      // Obtener datos del usuario con el token
       const userResponse = await fetch("https://api.github.com/user", {
         headers: {
           Authorization: `Bearer ${access_token}`,
           Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
         },
       });
 
@@ -135,6 +109,7 @@ export const useAuthStore = defineStore("auth", () => {
       }
 
       const userData = await userResponse.json();
+      console.log("👤 Datos de usuario obtenidos:", userData.login);
 
       // Guardar token para futuras requests
       userData.access_token = access_token;
@@ -142,7 +117,7 @@ export const useAuthStore = defineStore("auth", () => {
       setUser(userData);
       return true;
     } catch (err) {
-      console.error("Error en autenticación:", err);
+      console.error("💥 Error en autenticación:", err);
       setError(err.message);
       return false;
     } finally {
@@ -152,8 +127,10 @@ export const useAuthStore = defineStore("auth", () => {
 
   // Logout
   const logout = () => {
+    console.log("👋 Cerrando sesión...");
     setUser(null);
     clearError();
+
     // Redirect a home si estamos en ruta protegida
     if (window.location.pathname.startsWith("/dashboard")) {
       window.location.href = "/";
@@ -167,34 +144,36 @@ export const useAuthStore = defineStore("auth", () => {
       if (savedUser) {
         const userData = JSON.parse(savedUser);
         user.value = userData;
+        console.log("🔄 Usuario restaurado:", userData.login);
       }
     } catch (err) {
-      console.error("Error restaurando usuario:", err);
+      console.error("💥 Error restaurando usuario:", err);
       localStorage.removeItem("auth_user");
     }
   };
 
-  // Verificar si el token sigue válido
+  // Verificar si el token sigue válido usando tu backend
   const validateSession = async () => {
     if (!user.value?.access_token) return false;
 
     try {
-      const response = await fetch("https://api.github.com/user", {
+      // Opción 1: Usar tu backend
+      const response = await fetch(`${API_BASE_URL}/auth/validate`, {
         headers: {
           Authorization: `Bearer ${user.value.access_token}`,
-          Accept: "application/vnd.github+json",
+          Accept: "application/json",
         },
       });
 
       if (!response.ok) {
-        // Token inválido
         logout();
         return false;
       }
 
-      return true;
+      const result = await response.json();
+      return result.valid;
     } catch (err) {
-      console.error("Error validando sesión:", err);
+      console.error("💥 Error validando sesión:", err);
       logout();
       return false;
     }

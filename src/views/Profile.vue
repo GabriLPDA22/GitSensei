@@ -1,11 +1,19 @@
 <template>
   <div class="profile">
     <div class="container">
-      <!-- Header del Perfil -->
-      <div class="profile-header">
+      <!-- Loading state -->
+      <div v-if="githubStats.loading" class="loading-profile">
+        <div class="spinner"></div>
+        <p>Cargando tus datos reales de GitHub...</p>
+      </div>
+
+      <!-- Header del perfil CON DATOS REALES -->
+      <div v-else class="profile-header">
         <div class="profile-header__avatar">
           <div class="avatar">
-            <User class="w-12 h-12" />
+            <!-- ✅ AVATAR REAL DE GABRIEL -->
+            <img v-if="user?.avatar_url" :src="user.avatar_url" :alt="user.name || user.login" class="avatar-image" />
+            <User v-else class="w-12 h-12" />
           </div>
           <button class="avatar-edit">
             <Edit3 class="w-4 h-4" />
@@ -13,8 +21,14 @@
         </div>
 
         <div class="profile-header__info">
-          <h1 class="profile-header__name">{{ userProfile.name }}</h1>
-          <p class="profile-header__email">{{ userProfile.email }}</p>
+          <!-- ✅ NOMBRE REAL DE GABRIEL -->
+          <h1 class="profile-header__name">{{ user?.name || user?.login }}</h1>
+          <p class="profile-header__email">
+            @{{ user?.login }}
+            <span v-if="user?.location"> • {{ user.location }}</span>
+          </p>
+          <p v-if="user?.bio" class="profile-header__bio">{{ user.bio }}</p>
+
           <div class="profile-header__badges">
             <div class="level-badge">
               <Star class="w-4 h-4" />
@@ -22,28 +36,33 @@
             </div>
             <div class="streak-badge">
               <Flame class="w-4 h-4" />
-              {{ userStreak }} días
+              {{ userProgress.currentStreak }} días
+            </div>
+            <div class="github-badge">
+              <GitBranch class="w-4 h-4" />
+              {{ githubStats.yearsOnGitHub }}+ años en GitHub
             </div>
           </div>
         </div>
 
+        <!-- ✅ STATS REALES DE GITHUB -->
         <div class="profile-header__stats">
           <div class="stat-item">
-            <span class="stat-item__number">{{ userStats.totalPoints }}</span>
-            <span class="stat-item__label">Puntos Totales</span>
+            <span class="stat-item__number">{{ githubStats.publicRepos }}</span>
+            <span class="stat-item__label">Repositorios</span>
           </div>
           <div class="stat-item">
-            <span class="stat-item__number">{{ userStats.completedModules }}</span>
-            <span class="stat-item__label">Módulos Completados</span>
+            <span class="stat-item__number">{{ githubStats.followers }}</span>
+            <span class="stat-item__label">Followers</span>
           </div>
           <div class="stat-item">
-            <span class="stat-item__number">{{ userStats.totalBadges }}</span>
-            <span class="stat-item__label">Insignias</span>
+            <span class="stat-item__number">{{ githubStats.totalStars }}</span>
+            <span class="stat-item__label">Estrellas</span>
           </div>
         </div>
       </div>
 
-      <!-- Contenido del Perfil -->
+      <!-- Contenido del perfil -->
       <div class="profile-content">
         <div class="profile-grid">
           <!-- Panel Principal -->
@@ -61,19 +80,9 @@
                 <div class="overall-progress">
                   <div class="progress-circle-large">
                     <svg class="progress-circle-large__svg" viewBox="0 0 100 100">
-                      <circle
-                        class="progress-circle-large__bg"
-                        cx="50"
-                        cy="50"
-                        r="45"
-                      />
-                      <circle
-                        class="progress-circle-large__fill"
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        :stroke-dasharray="`${overallProgress * 2.83} 283`"
-                      />
+                      <circle class="progress-circle-large__bg" cx="50" cy="50" r="45" />
+                      <circle class="progress-circle-large__fill" cx="50" cy="50" r="45"
+                        :stroke-dasharray="`${overallProgress * 2.83} 283`" />
                     </svg>
                     <div class="progress-circle-large__content">
                       <span class="progress-circle-large__percentage">{{ overallProgress }}%</span>
@@ -84,19 +93,17 @@
                   <div class="progress-details">
                     <h3 class="progress-details__title">Progreso General</h3>
                     <p class="progress-details__description">
-                      Has completado {{ userStats.completedModules }} de {{ totalModules }} módulos
+                      Has completado {{ userProgress.completedModules }} de 6 módulos
                     </p>
 
                     <div class="level-progress">
                       <div class="level-progress__info">
                         <span class="level-progress__current">Nivel {{ userLevel }}</span>
-                        <span class="level-progress__next">{{ pointsToNextLevel }} puntos para Nivel {{ userLevel + 1 }}</span>
+                        <span class="level-progress__next">{{ pointsToNextLevel }} puntos para Nivel {{ userLevel + 1
+                          }}</span>
                       </div>
                       <div class="level-progress__bar">
-                        <div
-                          class="level-progress__fill"
-                          :style="{ width: `${levelProgressPercentage}%` }"
-                        ></div>
+                        <div class="level-progress__fill" :style="{ width: `${levelProgressPercentage}%` }"></div>
                       </div>
                     </div>
                   </div>
@@ -106,11 +113,7 @@
                 <div class="modules-progress">
                   <h4 class="modules-progress__title">Progreso por Módulo</h4>
                   <div class="modules-list">
-                    <div
-                      v-for="module in modulesProgress"
-                      :key="module.id"
-                      class="module-progress-item"
-                    >
+                    <div v-for="module in modulesProgress" :key="module.id" class="module-progress-item">
                       <div class="module-progress-item__header">
                         <div class="module-progress-item__icon" :style="{ backgroundColor: module.color }">
                           <component :is="module.icon" class="w-5 h-5" />
@@ -125,10 +128,7 @@
                         </div>
                       </div>
                       <div class="module-progress-item__bar">
-                        <div
-                          class="module-progress-item__fill"
-                          :style="{ width: `${module.progress}%` }"
-                        ></div>
+                        <div class="module-progress-item__fill" :style="{ width: `${module.progress}%` }"></div>
                       </div>
                     </div>
                   </div>
@@ -136,89 +136,38 @@
               </div>
             </div>
 
-            <!-- Actividad Reciente -->
-            <div class="section recent-activity">
+            <!-- Sección de repositorios recientes REALES -->
+            <div class="section recent-repos">
               <div class="section-header">
                 <h2 class="section-title">
-                  <Activity class="w-5 h-5" />
-                  Actividad Reciente
+                  <GitBranch class="w-5 h-5" />
+                  Repositorios Recientes
                 </h2>
-                <button class="section-action">Ver Todo</button>
               </div>
-
-              <div class="activity-timeline">
-                <div
-                  v-for="activity in recentActivities"
-                  :key="activity.id"
-                  class="activity-item"
-                >
-                  <div class="activity-item__marker" :class="`activity-item__marker--${activity.type}`">
-                    <component :is="activity.icon" class="w-4 h-4" />
-                  </div>
-                  <div class="activity-item__content">
-                    <div class="activity-item__main">
-                      <h4 class="activity-item__title">{{ activity.title }}</h4>
-                      <p class="activity-item__description">{{ activity.description }}</p>
-                    </div>
-                    <div class="activity-item__meta">
-                      <span class="activity-item__time">{{ activity.time }}</span>
-                      <span v-if="activity.points" class="activity-item__points">
-                        +{{ activity.points }} puntos
-                      </span>
-                    </div>
+              <div class="repos-grid">
+                <div v-for="repo in githubStats.recentRepos" :key="repo.name" class="repo-card">
+                  <h3 class="repo-card__name">{{ repo.name }}</h3>
+                  <p class="repo-card__description">{{ repo.description || 'Sin descripción' }}</p>
+                  <div class="repo-card__meta">
+                    <span v-if="repo.language" class="repo-language">{{ repo.language }}</span>
+                    <span class="repo-stars">⭐ {{ repo.stars }}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Estadísticas Detalladas -->
-            <div class="section detailed-stats">
+            <!-- Sección de lenguajes REALES -->
+            <div class="section languages">
               <div class="section-header">
                 <h2 class="section-title">
-                  <BarChart3 class="w-5 h-5" />
-                  Estadísticas Detalladas
+                  <FileText class="w-5 h-5" />
+                  Tus Lenguajes Principales
                 </h2>
               </div>
-
-              <div class="stats-grid">
-                <div class="stat-card">
-                  <div class="stat-card__icon">
-                    <Timer class="w-6 h-6" />
-                  </div>
-                  <div class="stat-card__content">
-                    <span class="stat-card__number">{{ userStats.totalTimeSpent }}</span>
-                    <span class="stat-card__label">Horas de Estudio</span>
-                  </div>
-                </div>
-
-                <div class="stat-card">
-                  <div class="stat-card__icon">
-                    <Target class="w-6 h-6" />
-                  </div>
-                  <div class="stat-card__content">
-                    <span class="stat-card__number">{{ userStats.exercisesCompleted }}</span>
-                    <span class="stat-card__label">Ejercicios Completados</span>
-                  </div>
-                </div>
-
-                <div class="stat-card">
-                  <div class="stat-card__icon">
-                    <Zap class="w-6 h-6" />
-                  </div>
-                  <div class="stat-card__content">
-                    <span class="stat-card__number">{{ userStats.currentStreak }}</span>
-                    <span class="stat-card__label">Racha Actual</span>
-                  </div>
-                </div>
-
-                <div class="stat-card">
-                  <div class="stat-card__icon">
-                    <Calendar class="w-6 h-6" />
-                  </div>
-                  <div class="stat-card__content">
-                    <span class="stat-card__number">{{ userStats.activeDays }}</span>
-                    <span class="stat-card__label">Días Activos</span>
-                  </div>
+              <div class="languages-grid">
+                <div v-for="language in githubStats.topLanguages" :key="language.name" class="language-item">
+                  <span class="language-name">{{ language.name }}</span>
+                  <span class="language-count">{{ language.count }} repos</span>
                 </div>
               </div>
             </div>
@@ -226,6 +175,35 @@
 
           <!-- Sidebar -->
           <div class="profile-sidebar">
+            <!-- GitHub Stats REALES -->
+            <div class="section github-stats">
+              <div class="section-header">
+                <h3 class="section-title">
+                  <GitBranch class="w-4 h-4" />
+                  Stats de GitHub
+                </h3>
+              </div>
+
+              <div class="github-stats-grid">
+                <div class="github-stat">
+                  <span class="github-stat__number">{{ githubStats.publicRepos }}</span>
+                  <span class="github-stat__label">Repos Públicos</span>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__number">{{ githubStats.followers }}</span>
+                  <span class="github-stat__label">Followers</span>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__number">{{ githubStats.following }}</span>
+                  <span class="github-stat__label">Following</span>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__number">{{ githubStats.totalStars }}</span>
+                  <span class="github-stat__label">Total Stars</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Insignias -->
             <div class="section badges-collection">
               <div class="section-header">
@@ -233,121 +211,16 @@
                   <Award class="w-4 h-4" />
                   Insignias
                 </h3>
-                <button class="section-action">Ver Todas</button>
               </div>
 
               <div class="badges-showcase">
-                <div
-                  v-for="badge in featuredBadges"
-                  :key="badge.id"
-                  class="badge-showcase"
-                  :title="badge.description"
-                >
-                  <div class="badge-showcase__icon">
-                    {{ badge.emoji }}
-                  </div>
+                <div v-for="badge in featuredBadges" :key="badge.id" class="badge-showcase">
+                  <div class="badge-showcase__icon">{{ badge.emoji }}</div>
                   <div class="badge-showcase__info">
                     <h4 class="badge-showcase__name">{{ badge.name }}</h4>
                     <p class="badge-showcase__description">{{ badge.description }}</p>
-                    <span class="badge-showcase__date">{{ badge.earnedDate }}</span>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <!-- Objetivos -->
-            <div class="section goals">
-              <div class="section-header">
-                <h3 class="section-title">
-                  <Target class="w-4 h-4" />
-                  Objetivos
-                </h3>
-              </div>
-
-              <div class="goals-list">
-                <div
-                  v-for="goal in currentGoals"
-                  :key="goal.id"
-                  class="goal-item"
-                >
-                  <div class="goal-item__header">
-                    <h4 class="goal-item__title">{{ goal.title }}</h4>
-                    <span class="goal-item__progress">{{ goal.current }}/{{ goal.target }}</span>
-                  </div>
-                  <div class="goal-item__bar">
-                    <div
-                      class="goal-item__fill"
-                      :style="{ width: `${(goal.current / goal.target) * 100}%` }"
-                    ></div>
-                  </div>
-                  <p class="goal-item__description">{{ goal.description }}</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Configuración -->
-            <div class="section settings">
-              <div class="section-header">
-                <h3 class="section-title">
-                  <Settings class="w-4 h-4" />
-                  Configuración
-                </h3>
-              </div>
-
-              <div class="settings-options">
-                <div class="setting-item">
-                  <div class="setting-item__info">
-                    <h4 class="setting-item__title">Notificaciones</h4>
-                    <p class="setting-item__description">Recibir recordatorios de estudio</p>
-                  </div>
-                  <div class="setting-item__control">
-                    <button
-                      class="toggle-switch"
-                      :class="{ 'toggle-switch--active': settings.notifications }"
-                      @click="toggleSetting('notifications')"
-                    >
-                      <div class="toggle-switch__slider"></div>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="setting-item">
-                  <div class="setting-item__info">
-                    <h4 class="setting-item__title">Tema Oscuro</h4>
-                    <p class="setting-item__description">Usar tema oscuro por defecto</p>
-                  </div>
-                  <div class="setting-item__control">
-                    <button
-                      class="toggle-switch toggle-switch--active"
-                      disabled
-                    >
-                      <div class="toggle-switch__slider"></div>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="setting-item">
-                  <div class="setting-item__info">
-                    <h4 class="setting-item__title">Sonidos</h4>
-                    <p class="setting-item__description">Efectos de sonido en ejercicios</p>
-                  </div>
-                  <div class="setting-item__control">
-                    <button
-                      class="toggle-switch"
-                      :class="{ 'toggle-switch--active': settings.sounds }"
-                      @click="toggleSetting('sounds')"
-                    >
-                      <div class="toggle-switch__slider"></div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-actions">
-                <button class="btn btn--secondary btn--small w-full">
-                  <Download class="w-4 h-4 mr-2" />
-                  Exportar Progreso
-                </button>
               </div>
             </div>
           </div>
@@ -358,65 +231,39 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import { storeToRefs } from 'pinia'
 import {
   User, Edit3, Star, Flame, TrendingUp, CheckCircle2, Clock,
   Activity, BarChart3, Timer, Target, Zap, Calendar, Award,
   Settings, Download, FileText, GitBranch, Database, Share2, Book
 } from 'lucide-vue-next'
 
-// Estado reactivo
-const userProfile = ref({
-  name: 'Desarrollador Git',
-  email: 'developer@gitlearning.com',
-  avatar: null,
-  joinedDate: '2024-01-15'
+const authStore = useAuthStore()
+const { user, isAuthenticated } = storeToRefs(authStore)
+
+// 🔥 DATOS REALES DE GITHUB
+const githubStats = ref({
+  publicRepos: 0,
+  followers: 0,
+  following: 0,
+  totalStars: 0,
+  topLanguages: [],
+  recentRepos: [],
+  yearsOnGitHub: 0,
+  loading: true
 })
 
-const userStats = ref({
-  totalPoints: 1250,
+// Datos de progreso en la plataforma
+const userProgress = ref({
+  totalPoints: 850,
   completedModules: 2,
   totalBadges: 5,
-  totalTimeSpent: 12,
-  exercisesCompleted: 23,
-  currentStreak: 7,
-  activeDays: 15
+  currentStreak: 7
 })
 
-const settings = ref({
-  notifications: true,
-  darkMode: true,
-  sounds: false
-})
-
-const totalModules = ref(6)
-
-// Computed properties
-const userLevel = computed(() => {
-  return Math.floor(userStats.value.totalPoints / 250) + 1
-})
-
-const userStreak = computed(() => {
-  return userStats.value.currentStreak
-})
-
-const overallProgress = computed(() => {
-  return Math.round((userStats.value.completedModules / totalModules.value) * 100)
-})
-
-const pointsToNextLevel = computed(() => {
-  const currentLevelPoints = (userLevel.value - 1) * 250
-  const nextLevelPoints = userLevel.value * 250
-  return nextLevelPoints - userStats.value.totalPoints
-})
-
-const levelProgressPercentage = computed(() => {
-  const currentLevelPoints = (userLevel.value - 1) * 250
-  const pointsInLevel = userStats.value.totalPoints - currentLevelPoints
-  return (pointsInLevel / 250) * 100
-})
-
-// Datos del progreso de módulos
+// Módulos con progreso
 const modulesProgress = ref([
   {
     id: 'module-0',
@@ -438,125 +285,113 @@ const modulesProgress = ref([
     progress: 30,
     color: '#a5a5ff',
     icon: GitBranch
-  },
-  {
-    id: 'module-3',
-    title: 'Colaboración y Remotos',
-    progress: 0,
-    color: '#d29922',
-    icon: Share2
-  },
-  {
-    id: 'module-4',
-    title: 'La Forja',
-    progress: 0,
-    color: '#79c0ff',
-    icon: Zap
-  },
-  {
-    id: 'module-5',
-    title: 'Biblioteca de Comandos',
-    progress: 0,
-    color: '#56d364',
-    icon: Book
   }
 ])
 
-// Actividades recientes
-const recentActivities = ref([
-  {
-    id: 1,
-    type: 'achievement',
-    icon: Award,
-    title: 'Nueva insignia obtenida',
-    description: 'Has ganado la insignia "Maestro del Merge"',
-    time: 'hace 2 horas',
-    points: 100
-  },
-  {
-    id: 2,
-    type: 'lesson',
-    icon: CheckCircle2,
-    title: 'Lección completada',
-    description: 'Completaste "Resolución de Conflictos"',
-    time: 'hace 1 día',
-    points: 50
-  },
-  {
-    id: 3,
-    type: 'streak',
-    icon: Flame,
-    title: 'Racha de 7 días',
-    description: 'Has estudiado 7 días consecutivos',
-    time: 'hace 2 días',
-    points: 75
-  },
-  {
-    id: 4,
-    type: 'module',
-    icon: Target,
-    title: 'Módulo completado',
-    description: 'Completaste "Fundamentos de Git"',
-    time: 'hace 3 días',
-    points: 200
-  }
-])
-
-// Insignias destacadas
+// Insignias basadas en datos reales
 const featuredBadges = ref([
   {
     id: 1,
-    name: 'Primer Commit',
-    emoji: '🥇',
-    description: 'Realiza tu primer commit',
-    earnedDate: 'hace 2 semanas'
+    name: 'Conectado',
+    emoji: '🔗',
+    description: 'Conectaste tu cuenta de GitHub'
   },
   {
     id: 2,
-    name: 'Explorador',
-    emoji: '🗺️',
-    description: 'Completa el módulo de fundamentos',
-    earnedDate: 'hace 1 semana'
+    name: 'Desarrollador',
+    emoji: '👨‍💻',
+    description: `Tienes ${user.value?.public_repos || 0} repositorios`
   },
   {
     id: 3,
-    name: 'Maestro del Merge',
-    emoji: '🔀',
-    description: 'Resuelve 5 conflictos de merge',
-    earnedDate: 'hace 2 horas'
+    name: 'Estudiante DAW',
+    emoji: '🎓',
+    description: 'Estudiante de Desarrollo Web'
   }
 ])
 
-// Objetivos actuales
-const currentGoals = ref([
-  {
-    id: 1,
-    title: 'Racha de 30 días',
-    description: 'Estudia 30 días consecutivos',
-    current: 7,
-    target: 30
-  },
-  {
-    id: 2,
-    title: 'Completar 3 módulos',
-    description: 'Completa 3 módulos completos',
-    current: 2,
-    target: 3
-  },
-  {
-    id: 3,
-    title: '50 ejercicios',
-    description: 'Completa 50 ejercicios prácticos',
-    current: 23,
-    target: 50
-  }
-])
+// Computed con datos reales
+const userLevel = computed(() => Math.floor(userProgress.value.totalPoints / 250) + 1)
+const overallProgress = computed(() => Math.round((userProgress.value.completedModules / 6) * 100))
+const pointsToNextLevel = computed(() => {
+  const nextLevelPoints = userLevel.value * 250
+  return nextLevelPoints - userProgress.value.totalPoints
+})
+const levelProgressPercentage = computed(() => {
+  const currentLevelPoints = (userLevel.value - 1) * 250
+  const pointsInLevel = userProgress.value.totalPoints - currentLevelPoints
+  return (pointsInLevel / 250) * 100
+})
 
-// Métodos
-const toggleSetting = (setting) => {
-  settings.value[setting] = !settings.value[setting]
-  // Aquí se guardarían las preferencias
+// 🚀 FUNCIÓN PARA CARGAR DATOS REALES
+const loadRealGitHubData = async () => {
+  if (!user.value?.access_token) return
+
+  try {
+    githubStats.value.loading = true
+    console.log('📡 Cargando datos reales de GitHub...')
+
+    // Datos básicos
+    githubStats.value.publicRepos = user.value.public_repos || 0
+    githubStats.value.followers = user.value.followers || 0
+    githubStats.value.following = user.value.following || 0
+
+    // Años en GitHub
+    if (user.value.created_at) {
+      const joinDate = new Date(user.value.created_at)
+      githubStats.value.yearsOnGitHub = new Date().getFullYear() - joinDate.getFullYear()
+    }
+
+    // 📚 Repositorios
+    const reposResponse = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+      headers: {
+        'Authorization': `Bearer ${user.value.access_token}`,
+        'Accept': 'application/vnd.github+json'
+      }
+    })
+
+    if (reposResponse.ok) {
+      const repos = await reposResponse.json()
+
+      // Total de estrellas
+      githubStats.value.totalStars = repos.reduce((sum, repo) => sum + (repo.stargazers_count || 0), 0)
+
+      // Repos recientes
+      githubStats.value.recentRepos = repos.slice(0, 5).map(repo => ({
+        name: repo.name,
+        description: repo.description,
+        language: repo.language,
+        stars: repo.stargazers_count
+      }))
+
+      // Lenguajes más usados
+      const languages = {}
+      repos.forEach(repo => {
+        if (repo.language) {
+          languages[repo.language] = (languages[repo.language] || 0) + 1
+        }
+      })
+
+      githubStats.value.topLanguages = Object.entries(languages)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 6)
+        .map(([lang, count]) => ({ name: lang, count }))
+
+      console.log('✅ Datos de GitHub cargados')
+    }
+
+  } catch (error) {
+    console.error('💥 Error:', error)
+  } finally {
+    githubStats.value.loading = false
+  }
 }
+
+onMounted(() => {
+  if (isAuthenticated.value) {
+    loadRealGitHubData()
+  }
+})
 </script>
 
 <style lang="scss" scoped>

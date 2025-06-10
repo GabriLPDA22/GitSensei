@@ -192,8 +192,9 @@ const visibleNavigationLinks = computed(() => {
 
 // Computed
 const isFullscreenRoute = computed(() => {
+  if (!route?.path) return false
   const fullscreenRoutes = ['/module', '/auth/callback']
-  return fullscreenRoutes.some(route => route.path.startsWith(route))
+  return fullscreenRoutes.some(routePath => route.path.startsWith(routePath))
 })
 
 // Métodos

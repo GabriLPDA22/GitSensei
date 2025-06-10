@@ -13,6 +13,9 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
+        // 🔇 SILENCIAR TODOS LOS WARNINGS DE SASS
+        quietDeps: true,
+        silenceDeprecations: ['import', 'global-builtin', 'color-functions'],
         additionalData: `
           @import "@/assets/scss/variables.scss";
           @import "@/assets/scss/mixins.scss";
