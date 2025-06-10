@@ -6,7 +6,7 @@
         <div class="dashboard-header">
           <div class="dashboard-header__info">
             <h1 class="dashboard-header__title">
-              ¡Hola de nuevo! 👋
+              ¡Hola de nuevo, {{ userName }}! 👋
             </h1>
             <p class="dashboard-header__subtitle">
               Continúa tu viaje para dominar Git y GitHub
@@ -27,7 +27,7 @@
                 <Target class="w-6 h-6" />
               </div>
               <div class="stat-card__content">
-                <span class="stat-card__number">{{ userProgress.completionPercentage }}%</span>
+                <span class="stat-card__number">{{ completionPercentage }}%</span>
                 <span class="stat-card__label">Completado</span>
               </div>
             </div>
@@ -36,7 +36,7 @@
                 <Award class="w-6 h-6" />
               </div>
               <div class="stat-card__content">
-                <span class="stat-card__number">{{ userProgress.badges.length }}</span>
+                <span class="stat-card__number">{{ recentAchievements.length }}</span>
                 <span class="stat-card__label">Insignias</span>
               </div>
             </div>
@@ -60,10 +60,7 @@
               <div class="progress-overview">
                 <div class="progress-bar">
                   <div class="progress-bar__track">
-                    <div
-                      class="progress-bar__fill"
-                      :style="{ width: `${userProgress.completionPercentage}%` }"
-                    ></div>
+                    <div class="progress-bar__fill" :style="{ width: `${completionPercentage}%` }"></div>
                   </div>
                   <span class="progress-bar__label">
                     {{ userProgress.completedModules.length }} de {{ totalModules }} módulos completados
@@ -74,76 +71,84 @@
                 <div class="streak-counter">
                   <Flame class="w-5 h-5 text-accent-blue" />
                   <span class="streak-counter__text">
-                    <strong>{{ currentStreak }}</strong> días consecutivos
+                    <strong>{{ userProgress.currentStreak }}</strong> días consecutivos
                   </span>
+                  <span class="streak-best">
+                    (Mejor: {{ userProgress.longestStreak }} días)
+                  </span>
+                </div>
+
+                <!-- Nivel actual -->
+                <div class="level-section">
+                  <div class="level-info">
+                    <span class="level-current">Nivel {{ userLevel }}</span>
+                    <span class="level-next">{{ pointsToNextLevel }} puntos para Nivel {{ userLevel + 1 }}</span>
+                  </div>
+                  <div class="level-progress">
+                    <div class="level-progress__bar">
+                      <div class="level-progress__fill" :style="{ width: `${levelProgressPercentage}%` }"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Módulos de Aprendizaje -->
+            <!-- Módulos de Aprendizaje CON DATOS REALES -->
             <div class="modules-section">
               <h2 class="section-title">
                 <BookOpen class="w-5 h-5" />
                 Módulos de Aprendizaje
               </h2>
               <div class="modules-grid">
-                <div
-                  v-for="module in modules"
-                  :key="module.id"
-                  class="module-card"
-                  :class="{
-                    'module-card--completed': module.completed,
-                    'module-card--current': module.id === currentModule?.id,
-                    'module-card--locked': module.locked
-                  }"
-                  @click="openModule(module)"
-                >
+                <div v-for="module in modulesStats" :key="module.id" class="module-card" :class="{
+                  'module-card--completed': module.isCompleted,
+                  'module-card--current': isCurrentModule(module),
+                  'module-card--locked': isModuleLocked(module)
+                }" @click="openModule(module)">
                   <div class="module-card__header">
                     <div class="module-card__icon" :style="{ backgroundColor: module.color }">
-                      <component :is="module.icon" class="w-6 h-6" />
+                      <component :is="getModuleIcon(module.icon)" class="w-6 h-6" />
                     </div>
                     <div class="module-card__status">
-                      <CheckCircle2 v-if="module.completed" class="w-5 h-5 text-accent-green" />
-                      <Play v-else-if="!module.locked" class="w-5 h-5 text-accent-blue" />
+                      <CheckCircle2 v-if="module.isCompleted" class="w-5 h-5 text-accent-green" />
+                      <Play v-else-if="!isModuleLocked(module)" class="w-5 h-5 text-accent-blue" />
                       <Lock v-else class="w-5 h-5 text-text-muted" />
                     </div>
                   </div>
 
                   <div class="module-card__content">
                     <h3 class="module-card__title">{{ module.title }}</h3>
-                    <p class="module-card__description">{{ module.description }}</p>
+                    <p class="module-card__description">
+                      {{ getModuleDescription(module.id) }}
+                    </p>
 
                     <div class="module-card__meta">
                       <span class="meta-item">
                         <Clock class="w-4 h-4" />
-                        {{ module.duration }}
+                        {{ getModuleDuration(module.id) }}
                       </span>
                       <span class="meta-item">
                         <Users class="w-4 h-4" />
-                        {{ module.difficulty }}
+                        {{ getModuleDifficulty(module.id) }}
                       </span>
                     </div>
 
                     <!-- Progreso del módulo -->
                     <div v-if="module.progress > 0" class="module-progress">
                       <div class="module-progress__bar">
-                        <div
-                          class="module-progress__fill"
-                          :style="{ width: `${module.progress}%` }"
-                        ></div>
+                        <div class="module-progress__fill" :style="{ width: `${module.progress}%` }"></div>
                       </div>
-                      <span class="module-progress__text">{{ module.progress }}% completado</span>
+                      <span class="module-progress__text">
+                        {{ module.progress }}% completado ({{ module.completedLessons }}/{{ module.totalLessons }}
+                        lecciones)
+                      </span>
                     </div>
 
                     <!-- Botón de acción -->
-                    <button
-                      class="module-card__action"
-                      :class="[
-                        module.completed ? 'btn--success' : 'btn--primary',
-                        { 'btn--disabled': module.locked }
-                      ]"
-                      :disabled="module.locked"
-                    >
+                    <button class="module-card__action" :class="[
+                      module.isCompleted ? 'btn--success' : 'btn--primary',
+                      { 'btn--disabled': isModuleLocked(module) }
+                    ]" :disabled="isModuleLocked(module)">
                       {{ getActionText(module) }}
                     </button>
                   </div>
@@ -151,24 +156,23 @@
               </div>
             </div>
 
-            <!-- Ejercicios Recientes -->
-            <div class="recent-section">
+            <!-- Actividad Reciente REAL -->
+            <div class="recent-section" v-if="recentActivity.length > 0">
               <h2 class="section-title">
                 <History class="w-5 h-5" />
                 Actividad Reciente
               </h2>
               <div class="activity-feed">
-                <div
-                  v-for="activity in recentActivities"
-                  :key="activity.id"
-                  class="activity-item"
-                >
-                  <div class="activity-item__icon" :class="`activity-item__icon--${activity.type}`">
-                    <component :is="activity.icon" class="w-4 h-4" />
+                <div v-for="activity in recentActivity" :key="activity.id" class="activity-item">
+                  <div class="activity-item__icon" :class="`activity-item__icon--${getActivityType(activity.type)}`">
+                    <component :is="getActivityIcon(activity.type)" class="w-4 h-4" />
                   </div>
                   <div class="activity-item__content">
-                    <p class="activity-item__text">{{ activity.text }}</p>
-                    <span class="activity-item__time">{{ activity.time }}</span>
+                    <p class="activity-item__text">{{ activity.title }}</p>
+                    <span class="activity-item__time">{{ formatDate(activity.createdAt) }}</span>
+                  </div>
+                  <div v-if="activity.points > 0" class="activity-item__points">
+                    +{{ activity.points }}
                   </div>
                 </div>
               </div>
@@ -177,54 +181,64 @@
 
           <!-- Panel Derecho -->
           <div class="dashboard-sidebar">
-            <!-- Insignias -->
-            <div class="badges-section">
+            <!-- Insignias REALES -->
+            <div class="badges-section" v-if="recentAchievements.length > 0">
               <h3 class="sidebar-title">
                 <Award class="w-4 h-4" />
                 Insignias Recientes
               </h3>
               <div class="badges-grid">
-                <div
-                  v-for="badge in recentBadges"
-                  :key="badge.id"
-                  class="badge-item"
-                  :title="badge.description"
-                >
+                <div v-for="badge in recentAchievements.slice(0, 6)" :key="badge.id" class="badge-item"
+                  :title="badge.description">
                   <div class="badge-item__icon">
                     {{ badge.emoji }}
                   </div>
                   <span class="badge-item__name">{{ badge.name }}</span>
+                  <span class="badge-item__date">{{ formatDate(badge.earnedAt) }}</span>
                 </div>
               </div>
-              <button class="btn btn--secondary btn--small w-full">
-                Ver Todas las Insignias
-              </button>
             </div>
 
-            <!-- Próximos Desafíos -->
-            <div class="challenges-section">
+            <!-- GitHub Stats REALES -->
+            <div class="github-section" v-if="user">
               <h3 class="sidebar-title">
-                <Zap class="w-4 h-4" />
-                Próximos Desafíos
+                <Github class="w-4 h-4" />
+                Tu GitHub
               </h3>
-              <div class="challenges-list">
-                <div
-                  v-for="challenge in upcomingChallenges"
-                  :key="challenge.id"
-                  class="challenge-item"
-                >
-                  <div class="challenge-item__reward">
-                    +{{ challenge.points }}
-                  </div>
-                  <div class="challenge-item__content">
-                    <h4 class="challenge-item__title">{{ challenge.title }}</h4>
-                    <p class="challenge-item__description">{{ challenge.description }}</p>
+              <div class="github-card">
+                <div class="github-card__avatar">
+                  <img :src="userAvatar" :alt="userName" />
+                </div>
+                <div class="github-card__info">
+                  <h4 class="github-card__name">{{ user.github_name || user.name }}</h4>
+                  <p class="github-card__username">@{{ user.github_username || user.login }}</p>
+                  <div class="github-card__stats">
+                    <span>{{ user.github_public_repos || user.public_repos || 0 }} repos</span>
+                    <span>{{ user.github_followers || user.followers || 0 }} followers</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Consejos del Día -->
+            <!-- Próximo Objetivo -->
+            <div class="next-goal-section">
+              <h3 class="sidebar-title">
+                <Target class="w-4 h-4" />
+                Próximo Objetivo
+              </h3>
+              <div class="goal-card">
+                <div class="goal-card__content">
+                  <h4 class="goal-card__title">{{ nextGoal.title }}</h4>
+                  <p class="goal-card__description">{{ nextGoal.description }}</p>
+                  <div class="goal-card__reward">
+                    <Star class="w-4 h-4" />
+                    +{{ nextGoal.points }} puntos
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Consejo del Día -->
             <div class="tip-section">
               <h3 class="sidebar-title">
                 <Lightbulb class="w-4 h-4" />
@@ -248,196 +262,199 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
+import { storeToRefs } from 'pinia'
 import {
   Trophy, Target, Award, TrendingUp, BookOpen, Clock, Users,
   CheckCircle2, Play, Lock, History, Zap, Lightbulb, RefreshCw,
-  Flame, GitBranch, FileText, Share2, Database, Book
+  Flame, GitBranch, FileText, Share2, Database, Book, Github,
+  Star
 } from 'lucide-vue-next'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const userStore = useUserStore()
 
-// Estado reactivo
-const currentStreak = ref(7)
-const totalModules = ref(6)
+// 🔥 DATOS REALES DEL STORE
+const { user, userAvatar, userName } = storeToRefs(authStore)
+const {
+  progress: userProgress,
+  completionPercentage,
+  userLevel,
+  pointsToNextLevel,
+  levelProgressPercentage,
+  modulesStats,
+  recentAchievements,
+  recentActivity
+} = storeToRefs(userStore)
+
+// Estado reactivo local
 const currentTipIndex = ref(0)
+const totalModules = ref(6)
 
-// Datos computados
-const userProgress = computed(() => userStore.progress)
-
-const currentModule = computed(() => {
-  return modules.value.find(m => !m.completed && !m.locked)
-})
-
-// Datos de módulos
-const modules = ref([
-  {
-    id: 'module-0',
-    title: 'Fundamentos',
+// Datos estáticos (no de usuario)
+const moduleDefinitions = {
+  'module-0': {
     description: 'Conceptos básicos de Git y control de versiones',
     duration: '30 min',
-    difficulty: 'Principiante',
-    color: '#58a6ff',
-    icon: FileText,
-    completed: true,
-    locked: false,
-    progress: 100
+    difficulty: 'Principiante'
   },
-  {
-    id: 'module-1',
-    title: 'Tu Primer Repositorio',
-    description: 'Crea tu primer repo y haz commits',
+  'module-1': {
+    description: 'Crea tu primer repo y haz commits paso a paso',
     duration: '45 min',
-    difficulty: 'Principiante',
-    color: '#39d353',
-    icon: Database,
-    completed: false,
-    locked: false,
-    progress: 60
+    difficulty: 'Principiante'
   },
-  {
-    id: 'module-2',
-    title: 'El Arte de Ramificar',
-    description: 'Branches, merge y trabajo colaborativo',
+  'module-2': {
+    description: 'Domina branches, merge y el trabajo colaborativo',
     duration: '60 min',
-    difficulty: 'Intermedio',
-    color: '#a5a5ff',
-    icon: GitBranch,
-    completed: false,
-    locked: false,
-    progress: 0
+    difficulty: 'Intermedio'
   },
-  {
-    id: 'module-3',
-    title: 'Colaboración y Remotos',
-    description: 'Push, pull, fetch y trabajo en equipo',
+  'module-3': {
+    description: 'Push, pull, fetch y trabajo en equipo con GitHub',
     duration: '50 min',
-    difficulty: 'Intermedio',
-    color: '#d29922',
-    icon: Share2,
-    completed: false,
-    locked: true,
-    progress: 0
+    difficulty: 'Intermedio'
   },
-  {
-    id: 'module-4',
-    title: 'La Forja',
+  'module-4': {
     description: 'Ejercicios prácticos y resolución de conflictos',
     duration: '90 min',
-    difficulty: 'Avanzado',
-    color: '#79c0ff',
-    icon: Zap,
-    completed: false,
-    locked: true,
-    progress: 0
+    difficulty: 'Avanzado'
   },
-  {
-    id: 'module-5',
-    title: 'Biblioteca de Comandos',
-    description: 'Guía de referencia rápida',
+  'module-5': {
+    description: 'Guía de referencia rápida y cheatsheet interactivo',
     duration: '∞',
-    difficulty: 'Referencia',
-    color: '#56d364',
-    icon: Book,
-    completed: false,
-    locked: true,
-    progress: 0
+    difficulty: 'Referencia'
   }
-])
+}
 
-// Actividades recientes
-const recentActivities = ref([
-  {
-    id: 1,
-    type: 'success',
-    icon: CheckCircle2,
-    text: 'Completaste "Fundamentos de Git"',
-    time: 'hace 2 horas'
-  },
-  {
-    id: 2,
-    type: 'progress',
-    icon: Play,
-    text: 'Progreso en "Tu Primer Repositorio" - 60%',
-    time: 'hace 1 día'
-  },
-  {
-    id: 3,
-    type: 'badge',
-    icon: Award,
-    text: 'Obtuviste la insignia "Primer Commit"',
-    time: 'hace 2 días'
-  }
-])
-
-// Insignias recientes
-const recentBadges = ref([
-  {
-    id: 1,
-    name: 'Primer Commit',
-    emoji: '🥇',
-    description: 'Realiza tu primer commit'
-  },
-  {
-    id: 2,
-    name: 'Explorador',
-    emoji: '🗺️',
-    description: 'Completa el módulo de fundamentos'
-  },
-  {
-    id: 3,
-    name: 'Estudiante',
-    emoji: '📚',
-    description: 'Dedica 30 minutos al aprendizaje'
-  }
-])
-
-// Próximos desafíos
-const upcomingChallenges = ref([
-  {
-    id: 1,
-    title: 'Racha de 10 días',
-    description: 'Aprende 10 días consecutivos',
-    points: 500
-  },
-  {
-    id: 2,
-    title: 'Maestro del Merge',
-    description: 'Completa 5 ejercicios de merge',
-    points: 300
-  }
-])
+const iconComponents = {
+  FileText,
+  Database,
+  GitBranch,
+  Share2,
+  Zap,
+  Book
+}
 
 // Consejos del día
 const dailyTips = ref([
-  {
-    text: '💡 Usa "git status" frecuentemente para saber el estado de tu repositorio.'
-  },
-  {
-    text: '🚀 Los mensajes de commit descriptivos te ahorrarán tiempo en el futuro.'
-  },
-  {
-    text: '🌿 Crea branches para cada nueva funcionalidad o experimento.'
-  },
-  {
-    text: '🔄 "git fetch" actualiza la información de remotos sin cambiar tu código.'
-  }
+  { text: '💡 Usa "git status" frecuentemente para saber el estado de tu repositorio.' },
+  { text: '🚀 Los mensajes de commit descriptivos te ahorrarán tiempo en el futuro.' },
+  { text: '🌿 Crea branches para cada nueva funcionalidad o experimento.' },
+  { text: '🔄 "git fetch" actualiza la información de remotos sin cambiar tu código.' },
+  { text: '🎯 Usa "git log --oneline" para ver un historial limpio de commits.' },
+  { text: '💾 Haz commits pequeños y frecuentes en lugar de uno grande.' }
 ])
 
+// Computed
 const dailyTip = computed(() => dailyTips.value[currentTipIndex.value])
 
+const nextGoal = computed(() => {
+  // Encontrar el próximo módulo no completado
+  const nextModule = modulesStats.value?.find(m => !m.isCompleted && !isModuleLocked(m))
+
+  if (nextModule) {
+    return {
+      title: `Completar ${nextModule.title}`,
+      description: `Continúa con el próximo módulo`,
+      points: 200
+    }
+  }
+
+  // Si no hay más módulos, objetivo de racha
+  if (userProgress.value.currentStreak < 7) {
+    return {
+      title: 'Racha de 7 días',
+      description: 'Aprende durante 7 días consecutivos',
+      points: 100
+    }
+  }
+
+  return {
+    title: 'Maestro de Git',
+    description: 'Completa todos los módulos',
+    points: 500
+  }
+})
+
 // Métodos
-const openModule = (module) => {
-  if (module.locked) return
-  router.push(`/module/${module.id}`)
+const getModuleIcon = (iconName) => {
+  return iconComponents[iconName] || FileText
+}
+
+const getModuleDescription = (moduleId) => {
+  return moduleDefinitions[moduleId]?.description || ''
+}
+
+const getModuleDuration = (moduleId) => {
+  return moduleDefinitions[moduleId]?.duration || ''
+}
+
+const getModuleDifficulty = (moduleId) => {
+  return moduleDefinitions[moduleId]?.difficulty || ''
+}
+
+const isCurrentModule = (module) => {
+  return module.id === userProgress.value.currentModule
+}
+
+const isModuleLocked = (module) => {
+  // Módulo 0 siempre desbloqueado
+  if (module.id === 'module-0') return false
+
+  // Los demás módulos se desbloquean secuencialmente
+  const moduleIndex = parseInt(module.id.split('-')[1])
+  if (moduleIndex === 0) return false
+
+  const previousModuleId = `module-${moduleIndex - 1}`
+  const previousModule = modulesStats.value?.find(m => m.id === previousModuleId)
+
+  return !previousModule?.isCompleted
 }
 
 const getActionText = (module) => {
-  if (module.locked) return 'Bloqueado'
-  if (module.completed) return 'Revisar'
+  if (isModuleLocked(module)) return 'Bloqueado'
+  if (module.isCompleted) return 'Revisar'
   if (module.progress > 0) return 'Continuar'
   return 'Empezar'
+}
+
+const openModule = (module) => {
+  if (isModuleLocked(module)) return
+  router.push(`/module/${module.id}`)
+}
+
+const getActivityIcon = (activityType) => {
+  const iconMap = {
+    lesson_completed: CheckCircle2,
+    module_started: Play,
+    module_completed: Trophy,
+    achievement_earned: Award,
+    user_registered: Users
+  }
+  return iconMap[activityType] || CheckCircle2
+}
+
+const getActivityType = (activityType) => {
+  const typeMap = {
+    lesson_completed: 'success',
+    module_started: 'progress',
+    module_completed: 'success',
+    achievement_earned: 'badge',
+    user_registered: 'info'
+  }
+  return typeMap[activityType] || 'info'
+}
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffInHours = Math.abs(now - date) / 36e5
+
+  if (diffInHours < 1) return 'hace menos de 1 hora'
+  if (diffInHours < 24) return `hace ${Math.floor(diffInHours)} horas`
+  if (diffInHours < 48) return 'ayer'
+  return `hace ${Math.floor(diffInHours / 24)} días`
 }
 
 const nextTip = () => {
@@ -445,9 +462,11 @@ const nextTip = () => {
 }
 
 // Lifecycle
-onMounted(() => {
-  // Simular carga de datos del usuario
-  console.log('Dashboard cargado')
+onMounted(async () => {
+  // Si no tenemos el progreso cargado, cargarlo
+  if (!authStore.userProgress && authStore.user?.id) {
+    await authStore.loadUserProgress()
+  }
 })
 </script>
 

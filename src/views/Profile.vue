@@ -11,23 +11,20 @@
       <div v-else class="profile-header">
         <div class="profile-header__avatar">
           <div class="avatar">
-            <!-- ✅ AVATAR REAL DE GABRIEL -->
-            <img v-if="user?.avatar_url" :src="user.avatar_url" :alt="user.name || user.login" class="avatar-image" />
+            <!-- ✅ AVATAR REAL DE GITHUB -->
+            <img v-if="userAvatar" :src="userAvatar" :alt="userName" class="avatar-image" />
             <User v-else class="w-12 h-12" />
           </div>
-          <button class="avatar-edit">
-            <Edit3 class="w-4 h-4" />
-          </button>
         </div>
 
         <div class="profile-header__info">
-          <!-- ✅ NOMBRE REAL DE GABRIEL -->
-          <h1 class="profile-header__name">{{ user?.name || user?.login }}</h1>
+          <!-- ✅ NOMBRE REAL DE GITHUB -->
+          <h1 class="profile-header__name">{{ userName }}</h1>
           <p class="profile-header__email">
-            @{{ user?.login }}
-            <span v-if="user?.location"> • {{ user.location }}</span>
+            @{{ user?.github_username || user?.login }}
+            <span v-if="user?.github_location"> • {{ user.github_location }}</span>
           </p>
-          <p v-if="user?.bio" class="profile-header__bio">{{ user.bio }}</p>
+          <p v-if="user?.github_bio" class="profile-header__bio">{{ user.github_bio }}</p>
 
           <div class="profile-header__badges">
             <div class="level-badge">
@@ -36,7 +33,7 @@
             </div>
             <div class="streak-badge">
               <Flame class="w-4 h-4" />
-              {{ userProgress.currentStreak }} días
+              {{ progress.currentStreak }} días
             </div>
             <div class="github-badge">
               <GitBranch class="w-4 h-4" />
@@ -67,7 +64,7 @@
         <div class="profile-grid">
           <!-- Panel Principal -->
           <div class="profile-main">
-            <!-- Progreso de Aprendizaje -->
+            <!-- Progreso de Aprendizaje REAL -->
             <div class="section learning-progress">
               <div class="section-header">
                 <h2 class="section-title">
@@ -82,10 +79,10 @@
                     <svg class="progress-circle-large__svg" viewBox="0 0 100 100">
                       <circle class="progress-circle-large__bg" cx="50" cy="50" r="45" />
                       <circle class="progress-circle-large__fill" cx="50" cy="50" r="45"
-                        :stroke-dasharray="`${overallProgress * 2.83} 283`" />
+                        :stroke-dasharray="`${completionPercentage * 2.83} 283`" />
                     </svg>
                     <div class="progress-circle-large__content">
-                      <span class="progress-circle-large__percentage">{{ overallProgress }}%</span>
+                      <span class="progress-circle-large__percentage">{{ completionPercentage }}%</span>
                       <span class="progress-circle-large__label">Completado</span>
                     </div>
                   </div>
@@ -93,14 +90,13 @@
                   <div class="progress-details">
                     <h3 class="progress-details__title">Progreso General</h3>
                     <p class="progress-details__description">
-                      Has completado {{ userProgress.completedModules }} de 6 módulos
+                      Has completado {{ progress.completedModules.length }} de 6 módulos
                     </p>
 
                     <div class="level-progress">
                       <div class="level-progress__info">
                         <span class="level-progress__current">Nivel {{ userLevel }}</span>
-                        <span class="level-progress__next">{{ pointsToNextLevel }} puntos para Nivel {{ userLevel + 1
-                          }}</span>
+                        <span class="level-progress__next">{{ pointsToNextLevel }} puntos para Nivel {{ userLevel + 1 }}</span>
                       </div>
                       <div class="level-progress__bar">
                         <div class="level-progress__fill" :style="{ width: `${levelProgressPercentage}%` }"></div>
@@ -109,11 +105,11 @@
                   </div>
                 </div>
 
-                <!-- Módulos individuales -->
+                <!-- Módulos individuales REALES -->
                 <div class="modules-progress">
                   <h4 class="modules-progress__title">Progreso por Módulo</h4>
                   <div class="modules-list">
-                    <div v-for="module in modulesProgress" :key="module.id" class="module-progress-item">
+                    <div v-for="module in modulesStats" :key="module.id" class="module-progress-item">
                       <div class="module-progress-item__header">
                         <div class="module-progress-item__icon" :style="{ backgroundColor: module.color }">
                           <component :is="module.icon" class="w-5 h-5" />
@@ -123,8 +119,9 @@
                           <span class="module-progress-item__progress">{{ module.progress }}% completado</span>
                         </div>
                         <div class="module-progress-item__status">
-                          <CheckCircle2 v-if="module.progress === 100" class="w-5 h-5 text-accent-green" />
-                          <Clock v-else class="w-5 h-5 text-accent-blue" />
+                          <CheckCircle2 v-if="module.isCompleted" class="w-5 h-5 text-accent-green" />
+                          <Clock v-else-if="module.isStarted" class="w-5 h-5 text-accent-blue" />
+                          <div v-else class="w-5 h-5 rounded-full border-2 border-gray-600"></div>
                         </div>
                       </div>
                       <div class="module-progress-item__bar">
@@ -137,7 +134,7 @@
             </div>
 
             <!-- Sección de repositorios recientes REALES -->
-            <div class="section recent-repos">
+            <div class="section recent-repos" v-if="githubStats.recentRepos.length > 0">
               <div class="section-header">
                 <h2 class="section-title">
                   <GitBranch class="w-5 h-5" />
@@ -156,18 +153,58 @@
               </div>
             </div>
 
+            <!-- Actividad Reciente REAL -->
+            <div class="section recent-activity" v-if="recentActivity.length > 0">
+              <div class="section-header">
+                <h2 class="section-title">
+                  <Activity class="w-5 h-5" />
+                  Actividad Reciente
+                </h2>
+              </div>
+              <div class="activity-timeline">
+                <div v-for="activity in recentActivity" :key="activity.id" class="activity-item">
+                  <div class="activity-item__marker" :class="`activity-item__marker--${activity.type}`">
+                    <Award v-if="activity.type === 'achievement_earned'" class="w-4 h-4" />
+                    <CheckCircle2 v-else-if="activity.type === 'lesson_completed'" class="w-4 h-4" />
+                    <Flame v-else-if="activity.type === 'streak_updated'" class="w-4 h-4" />
+                    <Star v-else class="w-4 h-4" />
+                  </div>
+                  <div class="activity-item__content">
+                    <div class="activity-item__main">
+                      <h4 class="activity-item__title">{{ activity.title }}</h4>
+                      <p v-if="activity.description" class="activity-item__description">{{ activity.description }}</p>
+                    </div>
+                    <div class="activity-item__meta">
+                      <span class="activity-item__time">{{ formatDate(activity.createdAt) }}</span>
+                      <span v-if="activity.points > 0" class="activity-item__points">+{{ activity.points }} pts</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Sección de lenguajes REALES -->
-            <div class="section languages">
+            <div class="section languages" v-if="githubStats.topLanguages.length > 0">
               <div class="section-header">
                 <h2 class="section-title">
                   <FileText class="w-5 h-5" />
                   Tus Lenguajes Principales
                 </h2>
               </div>
-              <div class="languages-grid">
-                <div v-for="language in githubStats.topLanguages" :key="language.name" class="language-item">
-                  <span class="language-name">{{ language.name }}</span>
-                  <span class="language-count">{{ language.count }} repos</span>
+              <div class="languages-showcase">
+                <div v-for="(language, index) in githubStats.topLanguages" :key="language.name"
+                     class="language-badge"
+                     :class="`language-badge--${index}`">
+                  <div class="language-badge__icon">
+                    <div class="language-badge__dot" :style="{ backgroundColor: getLanguageColor(language.name) }"></div>
+                  </div>
+                  <div class="language-badge__info">
+                    <span class="language-badge__name">{{ language.name }}</span>
+                    <span class="language-badge__count">{{ language.count }} repositorio{{ language.count !== 1 ? 's' : '' }}</span>
+                  </div>
+                  <div class="language-badge__percentage">
+                    {{ getLanguagePercentage(language.count) }}%
+                  </div>
                 </div>
               </div>
             </div>
@@ -204,22 +241,48 @@
               </div>
             </div>
 
-            <!-- Insignias -->
-            <div class="section badges-collection">
+            <!-- Insignias REALES -->
+            <div class="section badges-collection" v-if="recentAchievements.length > 0">
               <div class="section-header">
                 <h3 class="section-title">
                   <Award class="w-4 h-4" />
-                  Insignias
+                  Logros Recientes
                 </h3>
               </div>
 
               <div class="badges-showcase">
-                <div v-for="badge in featuredBadges" :key="badge.id" class="badge-showcase">
-                  <div class="badge-showcase__icon">{{ badge.emoji }}</div>
+                <div v-for="achievement in recentAchievements" :key="achievement.id" class="badge-showcase">
+                  <div class="badge-showcase__icon">{{ achievement.emoji }}</div>
                   <div class="badge-showcase__info">
-                    <h4 class="badge-showcase__name">{{ badge.name }}</h4>
-                    <p class="badge-showcase__description">{{ badge.description }}</p>
+                    <h4 class="badge-showcase__name">{{ achievement.name }}</h4>
+                    <p class="badge-showcase__description">{{ achievement.description }}</p>
+                    <span class="badge-showcase__date">{{ formatDate(achievement.earnedAt) }}</span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resumen de Puntuación REAL -->
+            <div class="section score-summary">
+              <div class="section-header">
+                <h3 class="section-title">
+                  <Star class="w-4 h-4" />
+                  Puntuación
+                </h3>
+              </div>
+
+              <div class="score-stats">
+                <div class="score-stat">
+                  <span class="score-stat__number">{{ progress.totalScore }}</span>
+                  <span class="score-stat__label">Puntos Totales</span>
+                </div>
+                <div class="score-stat">
+                  <span class="score-stat__number">{{ progress.longestStreak }}</span>
+                  <span class="score-stat__label">Mejor Racha</span>
+                </div>
+                <div class="score-stat">
+                  <span class="score-stat__number">{{ progress.badges.length }}</span>
+                  <span class="score-stat__label">Logros</span>
                 </div>
               </div>
             </div>
@@ -233,15 +296,28 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import {
-  User, Edit3, Star, Flame, TrendingUp, CheckCircle2, Clock,
-  Activity, BarChart3, Timer, Target, Zap, Calendar, Award,
-  Settings, Download, FileText, GitBranch, Database, Share2, Book
+  User, Star, Flame, TrendingUp, CheckCircle2, Clock,
+  Activity, Award, FileText, GitBranch, Database, Share2, Book, Zap
 } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
-const { user, isAuthenticated } = storeToRefs(authStore)
+const userStore = useUserStore()
+
+// 🔥 DATOS REALES DE LOS STORES
+const { user, isAuthenticated, userAvatar, userName } = storeToRefs(authStore)
+const {
+  progress,
+  completionPercentage,
+  userLevel,
+  pointsToNextLevel,
+  levelProgressPercentage,
+  modulesStats,
+  recentAchievements,
+  recentActivity
+} = storeToRefs(userStore)
 
 // 🔥 DATOS REALES DE GITHUB
 const githubStats = ref({
@@ -255,95 +331,30 @@ const githubStats = ref({
   loading: true
 })
 
-// Datos de progreso en la plataforma
-const userProgress = ref({
-  totalPoints: 850,
-  completedModules: 2,
-  totalBadges: 5,
-  currentStreak: 7
-})
-
-// Módulos con progreso
-const modulesProgress = ref([
-  {
-    id: 'module-0',
-    title: 'Fundamentos',
-    progress: 100,
-    color: '#58a6ff',
-    icon: FileText
-  },
-  {
-    id: 'module-1',
-    title: 'Tu Primer Repositorio',
-    progress: 75,
-    color: '#39d353',
-    icon: Database
-  },
-  {
-    id: 'module-2',
-    title: 'El Arte de Ramificar',
-    progress: 30,
-    color: '#a5a5ff',
-    icon: GitBranch
-  }
-])
-
-// Insignias basadas en datos reales
-const featuredBadges = ref([
-  {
-    id: 1,
-    name: 'Conectado',
-    emoji: '🔗',
-    description: 'Conectaste tu cuenta de GitHub'
-  },
-  {
-    id: 2,
-    name: 'Desarrollador',
-    emoji: '👨‍💻',
-    description: `Tienes ${user.value?.public_repos || 0} repositorios`
-  },
-  {
-    id: 3,
-    name: 'Estudiante DAW',
-    emoji: '🎓',
-    description: 'Estudiante de Desarrollo Web'
-  }
-])
-
-// Computed con datos reales
-const userLevel = computed(() => Math.floor(userProgress.value.totalPoints / 250) + 1)
-const overallProgress = computed(() => Math.round((userProgress.value.completedModules / 6) * 100))
-const pointsToNextLevel = computed(() => {
-  const nextLevelPoints = userLevel.value * 250
-  return nextLevelPoints - userProgress.value.totalPoints
-})
-const levelProgressPercentage = computed(() => {
-  const currentLevelPoints = (userLevel.value - 1) * 250
-  const pointsInLevel = userProgress.value.totalPoints - currentLevelPoints
-  return (pointsInLevel / 250) * 100
-})
-
 // 🚀 FUNCIÓN PARA CARGAR DATOS REALES
 const loadRealGitHubData = async () => {
-  if (!user.value?.access_token) return
+  if (!user.value?.access_token) {
+    githubStats.value.loading = false
+    return
+  }
 
   try {
     githubStats.value.loading = true
     console.log('📡 Cargando datos reales de GitHub...')
 
-    // Datos básicos
-    githubStats.value.publicRepos = user.value.public_repos || 0
-    githubStats.value.followers = user.value.followers || 0
-    githubStats.value.following = user.value.following || 0
+    // Datos básicos del usuario (ya los tenemos)
+    githubStats.value.publicRepos = user.value.github_public_repos || user.value.public_repos || 0
+    githubStats.value.followers = user.value.github_followers || user.value.followers || 0
+    githubStats.value.following = user.value.github_following || user.value.following || 0
 
     // Años en GitHub
-    if (user.value.created_at) {
-      const joinDate = new Date(user.value.created_at)
+    if (user.value.github_created_at || user.value.created_at) {
+      const joinDate = new Date(user.value.github_created_at || user.value.created_at)
       githubStats.value.yearsOnGitHub = new Date().getFullYear() - joinDate.getFullYear()
     }
 
-    // 📚 Repositorios
-    const reposResponse = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+    // 📚 Repositorios (solo si tenemos token)
+    const reposResponse = await fetch('https://api.github.com/user/repos?per_page=50&sort=updated', {
       headers: {
         'Authorization': `Bearer ${user.value.access_token}`,
         'Accept': 'application/vnd.github+json'
@@ -356,35 +367,94 @@ const loadRealGitHubData = async () => {
       // Total de estrellas
       githubStats.value.totalStars = repos.reduce((sum, repo) => sum + (repo.stargazers_count || 0), 0)
 
-      // Repos recientes
-      githubStats.value.recentRepos = repos.slice(0, 5).map(repo => ({
-        name: repo.name,
-        description: repo.description,
-        language: repo.language,
-        stars: repo.stargazers_count
-      }))
+      // Repos recientes (filtrar los que tienen descripción y no son forks)
+      githubStats.value.recentRepos = repos
+        .filter(repo => !repo.fork)
+        .slice(0, 6)
+        .map(repo => ({
+          name: repo.name,
+          description: repo.description,
+          language: repo.language,
+          stars: repo.stargazers_count,
+          url: repo.html_url
+        }))
 
       // Lenguajes más usados
       const languages = {}
       repos.forEach(repo => {
-        if (repo.language) {
+        if (repo.language && !repo.fork) {
           languages[repo.language] = (languages[repo.language] || 0) + 1
         }
       })
 
       githubStats.value.topLanguages = Object.entries(languages)
         .sort(([, a], [, b]) => b - a)
-        .slice(0, 6)
+        .slice(0, 8)
         .map(([lang, count]) => ({ name: lang, count }))
 
       console.log('✅ Datos de GitHub cargados')
+    } else {
+      console.warn('⚠️ No se pudieron cargar los repositorios')
     }
 
   } catch (error) {
-    console.error('💥 Error:', error)
+    console.error('💥 Error cargando datos de GitHub:', error)
   } finally {
     githubStats.value.loading = false
   }
+}
+
+// 📅 FUNCIÓN PARA FORMATEAR FECHAS
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffTime = Math.abs(now - date)
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return 'Hoy'
+  if (diffDays === 1) return 'Ayer'
+  if (diffDays < 7) return `Hace ${diffDays} días`
+  if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} semanas`
+
+  return date.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short'
+  })
+}
+
+// 🎨 FUNCIÓN PARA OBTENER COLOR DE LENGUAJE
+const getLanguageColor = (language) => {
+  const colors = {
+    JavaScript: '#f1e05a',
+    TypeScript: '#2b7489',
+    Vue: '#41b883',
+    Python: '#3572A5',
+    Java: '#b07219',
+    'C#': '#239120',
+    PHP: '#4F5D95',
+    CSS: '#563d7c',
+    HTML: '#e34c26',
+    SCSS: '#c6538c',
+    Shell: '#89e051',
+    Go: '#00ADD8',
+    Rust: '#dea584',
+    'C++': '#f34b7d',
+    C: '#555555',
+    Ruby: '#701516',
+    Swift: '#fa7343',
+    Kotlin: '#A97BFF',
+    Dart: '#00B4AB',
+    Dockerfile: '#384d54'
+  }
+  return colors[language] || '#8b949e'
+}
+
+// 📊 FUNCIÓN PARA CALCULAR PORCENTAJE DE LENGUAJE
+const getLanguagePercentage = (count) => {
+  const total = githubStats.value.topLanguages.reduce((sum, lang) => sum + lang.count, 0)
+  return Math.round((count / total) * 100)
 }
 
 onMounted(() => {
@@ -399,6 +469,36 @@ onMounted(() => {
   min-height: 100vh;
   background: $primary-dark;
   padding: 2rem 0;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+// Loading state
+.loading-profile {
+  @include flex-center;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 4rem;
+  text-align: center;
+  color: $text-secondary;
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid $border;
+  border-top: 2px solid $accent-blue;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 // Header del perfil
@@ -431,25 +531,13 @@ onMounted(() => {
   background: linear-gradient(135deg, $accent-blue, $accent-green);
   border-radius: 50%;
   color: white;
+  overflow: hidden;
 }
 
-.avatar-edit {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  @include flex-center;
-  width: 1.5rem;
-  height: 1.5rem;
-  background: $accent-blue;
-  border: 2px solid $secondary-dark;
-  border-radius: 50%;
-  color: white;
-  cursor: pointer;
-  @include transition();
-
-  &:hover {
-    background: #7bb3ff;
-  }
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .profile-header__info {
@@ -465,6 +553,12 @@ onMounted(() => {
 
 .profile-header__email {
   color: $text-secondary;
+  margin-bottom: 0.5rem;
+}
+
+.profile-header__bio {
+  color: $text-secondary;
+  font-style: italic;
   margin-bottom: 1rem;
 }
 
@@ -479,7 +573,8 @@ onMounted(() => {
 }
 
 .level-badge,
-.streak-badge {
+.streak-badge,
+.github-badge {
   @include flex-center;
   gap: 0.25rem;
   padding: 0.5rem 0.75rem;
@@ -498,6 +593,12 @@ onMounted(() => {
   background: rgba($accent-blue, 0.1);
   color: $accent-blue;
   border: 1px solid rgba($accent-blue, 0.2);
+}
+
+.github-badge {
+  background: rgba($accent-green, 0.1);
+  color: $accent-green;
+  border: 1px solid rgba($accent-green, 0.2);
 }
 
 .profile-header__stats {
@@ -575,19 +676,6 @@ onMounted(() => {
   font-weight: 600;
   color: $text-primary;
   justify-content: flex-start;
-}
-
-.section-action {
-  color: $accent-blue;
-  font-size: 0.875rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  @include transition();
-
-  &:hover {
-    color: #7bb3ff;
-  }
 }
 
 // Progreso de aprendizaje
@@ -774,6 +862,141 @@ onMounted(() => {
   }
 }
 
+// Repositorios
+.repos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.repo-card {
+  padding: 1rem;
+  background: $tertiary-dark;
+  border-radius: 0.5rem;
+  border: 1px solid $border;
+  @include transition();
+
+  &:hover {
+    border-color: $accent-blue;
+  }
+
+  &__name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 0.5rem;
+  }
+
+  &__description {
+    font-size: 0.75rem;
+    color: $text-secondary;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+  }
+
+  &__meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    font-size: 0.75rem;
+  }
+}
+
+.repo-language {
+  color: $accent-blue;
+}
+
+.repo-stars {
+  color: $text-secondary;
+}
+
+// Lenguajes
+.languages-showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.language-badge {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: $tertiary-dark;
+  border-radius: 0.75rem;
+  border: 1px solid $border;
+  @include transition();
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    border-color: $accent-blue;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--language-color, $accent-blue);
+    opacity: 0.8;
+  }
+
+  &--0::before { background: #f1e05a; }
+  &--1::before { background: #2b7489; }
+  &--2::before { background: #41b883; }
+  &--3::before { background: #3572A5; }
+  &--4::before { background: #b07219; }
+  &--5::before { background: #239120; }
+  &--6::before { background: #4F5D95; }
+  &--7::before { background: #563d7c; }
+
+  &__icon {
+    @include flex-center;
+    flex-shrink: 0;
+  }
+
+  &__dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+  }
+
+  &__info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 0.125rem;
+  }
+
+  &__count {
+    font-size: 0.8rem;
+    color: $text-secondary;
+  }
+
+  &__percentage {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: $accent-blue;
+    background: rgba($accent-blue, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid rgba($accent-blue, 0.2);
+    flex-shrink: 0;
+  }
+}
+
 // Timeline de actividad
 .activity-timeline {
   position: relative;
@@ -807,25 +1030,25 @@ onMounted(() => {
     flex-shrink: 0;
     z-index: 1;
 
-    &--achievement {
+    &--achievement_earned {
       background: rgba($warning, 0.1);
       color: $warning;
       border: 2px solid $warning;
     }
 
-    &--lesson {
+    &--lesson_completed {
       background: rgba($success, 0.1);
       color: $success;
       border: 2px solid $success;
     }
 
-    &--streak {
+    &--streak_updated {
       background: rgba($accent-blue, 0.1);
       color: $accent-blue;
       border: 2px solid $accent-blue;
     }
 
-    &--module {
+    &--module_completed {
       background: rgba($accent-green, 0.1);
       color: $accent-green;
       border: 2px solid $accent-green;
@@ -871,43 +1094,6 @@ onMounted(() => {
   }
 }
 
-// Estadísticas detalladas
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.stat-card {
-  @include card-base;
-  padding: 1.25rem;
-  text-align: center;
-  background: $tertiary-dark;
-
-  &__icon {
-    @include flex-center;
-    width: 3rem;
-    height: 3rem;
-    background: linear-gradient(135deg, $accent-blue, $accent-green);
-    border-radius: 50%;
-    margin: 0 auto 1rem;
-    color: white;
-  }
-
-  &__number {
-    display: block;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: $text-primary;
-    margin-bottom: 0.25rem;
-  }
-
-  &__label {
-    font-size: 0.875rem;
-    color: $text-secondary;
-  }
-}
-
 // Insignias
 .badges-showcase {
   display: flex;
@@ -926,6 +1112,10 @@ onMounted(() => {
   &__icon {
     font-size: 2rem;
     flex-shrink: 0;
+  }
+
+  &__info {
+    flex: 1;
   }
 
   &__name {
@@ -947,150 +1137,95 @@ onMounted(() => {
   }
 }
 
-// Objetivos
-.goals-list {
-  display: flex;
-  flex-direction: column;
+// GitHub Stats
+.github-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
 }
 
-.goal-item {
+.github-stat {
+  text-align: center;
   padding: 1rem;
   background: $tertiary-dark;
   border-radius: 0.5rem;
   border: 1px solid $border;
 
-  &__header {
-    @include flex-between;
-    margin-bottom: 0.5rem;
-  }
-
-  &__title {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: $text-primary;
-  }
-
-  &__progress {
-    font-size: 0.75rem;
-    color: $accent-blue;
-    font-weight: 500;
-  }
-
-  &__bar {
-    width: 100%;
-    height: 0.25rem;
-    background: $border;
-    border-radius: 9999px;
-    overflow: hidden;
-    margin-bottom: 0.5rem;
-  }
-
-  &__fill {
-    height: 100%;
-    background: $accent-blue;
-    border-radius: inherit;
-    @include transition(width, 0.4s, ease-out);
-  }
-
-  &__description {
-    font-size: 0.75rem;
-    color: $text-secondary;
-  }
-}
-
-// Configuración
-.settings-options {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.setting-item {
-  @include flex-between;
-  gap: 1rem;
-
-  &__info {
-    flex: 1;
-  }
-
-  &__title {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: $text-primary;
+  &__number {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: $accent-green;
     margin-bottom: 0.25rem;
   }
 
-  &__description {
+  &__label {
     font-size: 0.75rem;
     color: $text-secondary;
   }
 }
 
-.toggle-switch {
-  position: relative;
-  width: 2.5rem;
-  height: 1.25rem;
-  background: $border;
-  border: none;
-  border-radius: 9999px;
-  cursor: pointer;
-  @include transition();
+// Score Summary
+.score-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
 
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+.score-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: $tertiary-dark;
+  border-radius: 0.5rem;
+  border: 1px solid $border;
+
+  &__number {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: $accent-blue;
   }
 
-  &--active {
-    background: $accent-blue;
-  }
-
-  &__slider {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 1rem;
-    height: 1rem;
-    background: white;
-    border-radius: 50%;
-    @include transition(transform, 0.2s);
-  }
-
-  &--active &__slider {
-    transform: translateX(1.25rem);
+  &__label {
+    font-size: 0.875rem;
+    color: $text-secondary;
   }
 }
 
-.settings-actions {
-  padding-top: 1rem;
-  border-top: 1px solid $border;
-}
-
-// Botones
-.btn {
-  @include button-base;
-
-  &--secondary {
-    @include button-base;
-    background: transparent;
-    color: $text-primary;
-    border: 1px solid $border;
-
-    &:hover:not(:disabled) {
-      border-color: $accent-blue;
-      background: rgba($accent-blue, 0.1);
+// Responsive
+@include mobile-only {
+  .profile-grid {
+    .profile-sidebar {
+      order: -1;
     }
   }
 
-  &--small {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
+  .repos-grid {
+    grid-template-columns: 1fr;
   }
-}
 
-.w-full {
-  width: 100%;
+  .languages-showcase {
+    .language-badge {
+      padding: 0.875rem 1rem;
+
+      &__name {
+        font-size: 0.875rem;
+      }
+
+      &__count {
+        font-size: 0.75rem;
+      }
+
+      &__percentage {
+        font-size: 0.8rem;
+        padding: 0.2rem 0.4rem;
+      }
+    }
+  }
+
+  .github-stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

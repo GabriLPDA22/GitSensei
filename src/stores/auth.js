@@ -1,23 +1,25 @@
-// src/stores/auth.js - ACTUALIZADO PARA TU BACKEND
+// src/stores/auth.js - CON SUPABASE Y DATOS REALES
 
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { UserProgressService } from '@/services/userProgressService'
 
 export const useAuthStore = defineStore("auth", () => {
   // Estado
   const user = ref(null);
+  const userProgress = ref(null);
   const isLoading = ref(false);
   const error = ref(null);
 
-  // 🔧 URL de tu backend - AJUSTAR SEGÚN TU CONFIGURACIÓN
+  // 🔧 URL de tu backend
   const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
   // Getters
   const isAuthenticated = computed(() => !!user.value);
-  const userAvatar = computed(() => user.value?.avatar_url || null);
+  const userAvatar = computed(() => user.value?.github_avatar_url || user.value?.avatar_url || null);
   const userName = computed(
-    () => user.value?.name || user.value?.login || "Usuario"
+    () => user.value?.github_name || user.value?.name || user.value?.github_username || user.value?.login || "Usuario"
   );
   const userProfile = computed(() => user.value?.html_url || null);
 
@@ -28,7 +30,12 @@ export const useAuthStore = defineStore("auth", () => {
       localStorage.setItem("auth_user", JSON.stringify(userData));
     } else {
       localStorage.removeItem("auth_user");
+      userProgress.value = null;
     }
+  };
+
+  const setUserProgress = (progressData) => {
+    userProgress.value = progressData;
   };
 
   const setLoading = (loading) => {
@@ -41,6 +48,23 @@ export const useAuthStore = defineStore("auth", () => {
 
   const clearError = () => {
     error.value = null;
+  };
+
+  // 🚀 CARGAR PROGRESO COMPLETO DEL USUARIO
+  const loadUserProgress = async () => {
+    if (!user.value?.id) {
+      console.log('⚠️ No hay usuario para cargar progreso')
+      return;
+    }
+
+    try {
+      console.log("📊 Cargando progreso del usuario...");
+      const progressData = await UserProgressService.getUserProgress(user.value.id);
+      setUserProgress(progressData);
+      console.log("✅ Progreso cargado:", progressData);
+    } catch (error) {
+      console.error("❌ Error cargando progreso:", error);
+    }
   };
 
   // GitHub OAuth Login
@@ -63,7 +87,7 @@ export const useAuthStore = defineStore("auth", () => {
     window.location.href = authUrl;
   };
 
-  // Procesar callback de GitHub usando TU BACKEND
+  // 🔥 PROCESAR CALLBACK CON SUPABASE
   const handleGitHubCallback = async (code) => {
     if (!code) {
       setError("Código de autorización no recibido");
@@ -76,7 +100,7 @@ export const useAuthStore = defineStore("auth", () => {
 
       console.log("🔄 Procesando callback con código:", code);
 
-      // 🚀 LLAMADA A TU BACKEND
+      // 1. Obtener token de tu backend
       const tokenResponse = await fetch(`${API_BASE_URL}/auth/github`, {
         method: "POST",
         headers: {
@@ -84,8 +108,6 @@ export const useAuthStore = defineStore("auth", () => {
         },
         body: JSON.stringify({ code }),
       });
-
-      console.log("📨 Respuesta del backend:", tokenResponse.status);
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.json();
@@ -95,7 +117,7 @@ export const useAuthStore = defineStore("auth", () => {
       const { access_token } = await tokenResponse.json();
       console.log("✅ Token obtenido exitosamente");
 
-      // Obtener datos del usuario con el token
+      // 2. Obtener datos del usuario desde GitHub
       const userResponse = await fetch("https://api.github.com/user", {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -108,13 +130,31 @@ export const useAuthStore = defineStore("auth", () => {
         throw new Error("Error obteniendo datos del usuario");
       }
 
-      const userData = await userResponse.json();
-      console.log("👤 Datos de usuario obtenidos:", userData.login);
+      const githubUserData = await userResponse.json();
+      githubUserData.access_token = access_token;
 
-      // Guardar token para futuras requests
-      userData.access_token = access_token;
+      console.log("👤 Datos de GitHub obtenidos:", githubUserData.login);
 
-      setUser(userData);
+      // 3. 🚀 CREAR/ACTUALIZAR USUARIO EN SUPABASE
+      const supabaseUser = await UserProgressService.createOrUpdateUser(githubUserData);
+      console.log("💾 Usuario guardado en Supabase:", supabaseUser.id);
+
+      // 4. Combinar datos de GitHub + Supabase
+      const completeUserData = {
+        ...githubUserData,
+        ...supabaseUser,
+        // Mantener access_token de GitHub para futuras API calls
+        access_token: githubUserData.access_token
+      };
+
+      setUser(completeUserData);
+
+      // 5. Cargar progreso del usuario
+      await loadUserProgress();
+
+      // 6. Actualizar racha
+      await UserProgressService.updateStreak(supabaseUser.id);
+
       return true;
     } catch (err) {
       console.error("💥 Error en autenticación:", err);
@@ -137,14 +177,19 @@ export const useAuthStore = defineStore("auth", () => {
     }
   };
 
-  // Restaurar usuario del localStorage
-  const restoreUser = () => {
+  // Restaurar usuario del localStorage Y cargar progreso
+  const restoreUser = async () => {
     try {
       const savedUser = localStorage.getItem("auth_user");
       if (savedUser) {
         const userData = JSON.parse(savedUser);
         user.value = userData;
-        console.log("🔄 Usuario restaurado:", userData.login);
+        console.log("🔄 Usuario restaurado:", userData.github_username || userData.login);
+
+        // Cargar progreso si tenemos el ID de Supabase
+        if (userData.id) {
+          await loadUserProgress();
+        }
       }
     } catch (err) {
       console.error("💥 Error restaurando usuario:", err);
@@ -152,12 +197,11 @@ export const useAuthStore = defineStore("auth", () => {
     }
   };
 
-  // Verificar si el token sigue válido usando tu backend
+  // Verificar si el token sigue válido
   const validateSession = async () => {
     if (!user.value?.access_token) return false;
 
     try {
-      // Opción 1: Usar tu backend
       const response = await fetch(`${API_BASE_URL}/auth/validate`, {
         headers: {
           Authorization: `Bearer ${user.value.access_token}`,
@@ -179,9 +223,50 @@ export const useAuthStore = defineStore("auth", () => {
     }
   };
 
+  // 🎯 MÉTODOS PARA PROGRESO DEL USUARIO
+  const completeLesson = async (moduleId, lessonId, lessonTitle, points = 50) => {
+    if (!user.value?.id) return false;
+
+    try {
+      await UserProgressService.completeLesson(user.value.id, moduleId, lessonId, lessonTitle, points);
+      // Recargar progreso
+      await loadUserProgress();
+      return true;
+    } catch (error) {
+      console.error("❌ Error completando lección:", error);
+      return false;
+    }
+  };
+
+  const awardAchievement = async (achievementType, name, description, emoji, points = 0) => {
+    if (!user.value?.id) return false;
+
+    try {
+      const awarded = await UserProgressService.awardAchievement(
+        user.value.id,
+        achievementType,
+        name,
+        description,
+        emoji,
+        points
+      );
+
+      if (awarded) {
+        // Recargar progreso para mostrar nuevo logro
+        await loadUserProgress();
+      }
+
+      return awarded;
+    } catch (error) {
+      console.error("❌ Error otorgando logro:", error);
+      return false;
+    }
+  };
+
   return {
     // Estado
     user,
+    userProgress,
     isLoading,
     error,
 
@@ -193,13 +278,19 @@ export const useAuthStore = defineStore("auth", () => {
 
     // Actions
     setUser,
+    setUserProgress,
     setLoading,
     setError,
     clearError,
+    loadUserProgress,
     loginWithGitHub,
     handleGitHubCallback,
     logout,
     restoreUser,
     validateSession,
+
+    // Progreso
+    completeLesson,
+    awardAchievement,
   };
 });
