@@ -80,7 +80,7 @@
 
                 <!-- Nivel actual -->
                 <div class="level-section">
-                  <div class="level-info">
+                  <div class="level-info" style="display: flex; justify-content: space-between;">
                     <span class="level-current">Nivel {{ userLevel }}</span>
                     <span class="level-next">{{ pointsToNextLevel }} puntos para Nivel {{ userLevel + 1 }}</span>
                   </div>
@@ -212,50 +212,50 @@
                 <div class="github-card__info">
                   <h4 class="github-card__name">{{ user.github_name || user.name }}</h4>
                   <p class="github-card__username">@{{ user.github_username || user.login }}</p>
-                  <div class="github-card__stats">
-                    <span>{{ user.github_public_repos || user.public_repos || 0 }} repos</span>
-                    <span>{{ user.github_followers || user.followers || 0 }} followers</span>
-                  </div>
+                  <div class="github-card__stats" style="display: flex; flex-direction:column;">
+                  <span>{{ user.github_public_repos || user.public_repos || 0 }} repos</span>
+                  <span>{{ user.github_followers || user.followers || 0 }} followers</span>
                 </div>
               </div>
             </div>
+          </div>
 
-            <!-- Próximo Objetivo -->
-            <div class="next-goal-section">
-              <h3 class="sidebar-title">
-                <Target class="w-4 h-4" />
-                Próximo Objetivo
-              </h3>
-              <div class="goal-card">
-                <div class="goal-card__content">
-                  <h4 class="goal-card__title">{{ nextGoal.title }}</h4>
-                  <p class="goal-card__description">{{ nextGoal.description }}</p>
-                  <div class="goal-card__reward">
-                    <Star class="w-4 h-4" />
-                    +{{ nextGoal.points }} puntos
-                  </div>
+          <!-- Próximo Objetivo -->
+          <div class="next-goal-section">
+            <h3 class="sidebar-title">
+              <Target class="w-4 h-4" />
+              Próximo Objetivo
+            </h3>
+            <div class="goal-card">
+              <div class="goal-card__content">
+                <h4 class="goal-card__title">{{ nextGoal.title }}</h4>
+                <p class="goal-card__description">{{ nextGoal.description }}</p>
+                <div class="goal-card__reward">
+                  <Star class="w-4 h-4" />
+                  +{{ nextGoal.points }} puntos
                 </div>
               </div>
             </div>
+          </div>
 
-            <!-- Consejo del Día -->
-            <div class="tip-section">
-              <h3 class="sidebar-title">
-                <Lightbulb class="w-4 h-4" />
-                Consejo del Día
-              </h3>
-              <div class="tip-card">
-                <p class="tip-card__text">{{ dailyTip.text }}</p>
-                <button class="tip-card__action" @click="nextTip">
-                  <RefreshCw class="w-4 h-4" />
-                  Siguiente Consejo
-                </button>
-              </div>
+          <!-- Consejo del Día -->
+          <div class="tip-section">
+            <h3 class="sidebar-title">
+              <Lightbulb class="w-4 h-4" />
+              Consejo del Día
+            </h3>
+            <div class="tip-card">
+              <p class="tip-card__text">{{ dailyTip.text }}</p>
+              <button class="tip-card__action" @click="nextTip">
+                <RefreshCw class="w-4 h-4" />
+                Siguiente Consejo
+              </button>
             </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
   </div>
 </template>
 

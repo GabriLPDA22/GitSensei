@@ -18,21 +18,29 @@
         <div class="search-section">
           <div class="search-box">
             <Search class="w-5 h-5" />
-            <input v-model="searchQuery" type="text" placeholder="Buscar comandos..." class="search-input" />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Buscar comandos..."
+              class="search-input"
+            />
           </div>
           <div class="search-stats">
-            <!-- <span class="search-stats__text">
-              {{ filteredCommands.length }} comando{{ filteredCommands.length !== 1 ? 's' : '' }} encontrado{{
-                filteredCommands.length !== 1 ? 's' : '' }}
-            </span> -->
+            <span class="search-stats__text">
+              {{ filteredCommands.length }} comando{{ filteredCommands.length !== 1 ? 's' : '' }} encontrado{{ filteredCommands.length !== 1 ? 's' : '' }}
+            </span>
           </div>
         </div>
 
         <div class="filter-row">
           <div class="category-filters">
-            <button v-for="category in categories" :key="category.value" class="category-filter"
+            <button
+              v-for="category in categories"
+              :key="category.value"
+              class="category-filter"
               :class="{ 'category-filter--active': selectedCategory === category.value }"
-              @click="selectedCategory = category.value">
+              @click="selectedCategory = category.value"
+            >
               <component :is="category.icon" class="w-4 h-4" />
               {{ category.label }}
             </button>
@@ -40,9 +48,13 @@
 
           <div class="difficulty-filters">
             <span class="filter-label">Dificultad:</span>
-            <button v-for="difficulty in difficulties" :key="difficulty.value" class="difficulty-filter"
+            <button
+              v-for="difficulty in difficulties"
+              :key="difficulty.value"
+              class="difficulty-filter"
               :class="{ 'difficulty-filter--active': selectedDifficulty === difficulty.value }"
-              @click="selectedDifficulty = difficulty.value">
+              @click="selectedDifficulty = difficulty.value"
+            >
               {{ difficulty.label }}
             </button>
           </div>
@@ -51,18 +63,30 @@
 
       <!-- Lista de Comandos -->
       <div class="commands-grid">
-        <div v-for="command in filteredCommands" :key="command.id" class="command-card">
+        <div
+          v-for="command in filteredCommands"
+          :key="command.id"
+          class="command-card"
+        >
           <div class="command-card__header">
             <div class="command-card__main">
               <h3 class="command-card__title">{{ command.name }}</h3>
               <p class="command-card__description">{{ command.description }}</p>
             </div>
             <div class="command-card__actions">
-              <button @click="copyCommand(command.syntax)" class="action-button" title="Copiar comando">
+              <button
+                @click="copyCommand(command.syntax)"
+                class="action-button"
+                title="Copiar comando"
+              >
                 <Copy class="w-4 h-4" />
               </button>
-              <button @click="toggleFavorite(command.id)" class="action-button"
-                :class="{ 'action-button--active': command.isFavorite }" title="Marcar como favorito">
+              <button
+                @click="toggleFavorite(command.id)"
+                class="action-button"
+                :class="{ 'action-button--active': command.isFavorite }"
+                title="Marcar como favorito"
+              >
                 <Heart class="w-4 h-4" />
               </button>
             </div>
@@ -78,10 +102,17 @@
           <div v-if="command.examples && command.examples.length > 0" class="command-card__examples">
             <h4 class="examples-title">Ejemplos:</h4>
             <div class="examples-list">
-              <div v-for="(example, index) in command.examples" :key="index" class="example-item">
+              <div
+                v-for="(example, index) in command.examples"
+                :key="index"
+                class="example-item"
+              >
                 <div class="example-command">
                   <code>{{ example.command }}</code>
-                  <button @click="copyCommand(example.command)" class="copy-button">
+                  <button
+                    @click="copyCommand(example.command)"
+                    class="copy-button"
+                  >
                     <Copy class="w-3 h-3" />
                   </button>
                 </div>
@@ -93,7 +124,11 @@
           <div v-if="command.options && command.options.length > 0" class="command-card__options">
             <h4 class="options-title">Opciones comunes:</h4>
             <div class="options-list">
-              <div v-for="option in command.options" :key="option.flag" class="option-item">
+              <div
+                v-for="option in command.options"
+                :key="option.flag"
+                class="option-item"
+              >
                 <code class="option-flag">{{ option.flag }}</code>
                 <span class="option-description">{{ option.description }}</span>
               </div>
@@ -102,7 +137,11 @@
 
           <div class="command-card__footer">
             <div class="command-tags">
-              <span v-for="tag in command.tags" :key="tag" class="command-tag">
+              <span
+                v-for="tag in command.tags"
+                :key="tag"
+                class="command-tag"
+              >
                 {{ tag }}
               </span>
             </div>
@@ -134,10 +173,17 @@
           Tus Comandos Favoritos
         </h2>
         <div class="favorites-grid">
-          <div v-for="command in favoriteCommands" :key="`fav-${command.id}`" class="favorite-card">
+          <div
+            v-for="command in favoriteCommands"
+            :key="`fav-${command.id}`"
+            class="favorite-card"
+          >
             <h4 class="favorite-card__title">{{ command.name }}</h4>
             <code class="favorite-card__syntax">{{ command.syntax }}</code>
-            <button @click="copyCommand(command.syntax)" class="favorite-card__copy">
+            <button
+              @click="copyCommand(command.syntax)"
+              class="favorite-card__copy"
+            >
               <Copy class="w-3 h-3" />
             </button>
           </div>

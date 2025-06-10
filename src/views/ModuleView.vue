@@ -37,11 +37,11 @@
                   </span>
                   <span class="meta-item">
                     <Target class="w-4 h-4" />
-                    {{ currentModule.totalLessons }} lecciones
+                    {{ currentModule.totalLessons || currentModule.total_lessons || lessons.length }} lecciones
                   </span>
                   <span class="meta-item">
                     <Star class="w-4 h-4" />
-                    {{ currentModule.pointsEarned || 0 }} puntos
+                    {{ currentModule.pointsEarned || currentModule.points_earned || 0 }} puntos
                   </span>
                 </div>
               </div>
@@ -53,10 +53,10 @@
                 <svg class="progress-circle__svg" viewBox="0 0 100 100">
                   <circle class="progress-circle__bg" cx="50" cy="50" r="45" />
                   <circle class="progress-circle__fill" cx="50" cy="50" r="45"
-                    :stroke-dasharray="`${currentModule.progress || 0 * 2.83} 283`" />
+                    :stroke-dasharray="`${(currentModule.progress || currentModule.progress_percentage || 0) * 2.83} 283`" />
                 </svg>
                 <div class="progress-circle__content">
-                  <span class="progress-circle__percentage">{{ currentModule.progress || 0 }}%</span>
+                  <span class="progress-circle__percentage">{{ currentModule.progress || currentModule.progress_percentage || 0 }}%</span>
                   <span class="progress-circle__label">Completado</span>
                 </div>
               </div>
@@ -103,15 +103,15 @@
               <h4 class="summary-title">Resumen</h4>
               <div class="summary-stats">
                 <div class="summary-stat">
-                  <span class="summary-stat__number">{{ completedLessons }}</span>
+                  <span class="summary-stat__number">{{ currentModule.completedLessons || currentModule.completed_lessons || completedLessons }}</span>
                   <span class="summary-stat__label">Completadas</span>
                 </div>
                 <div class="summary-stat">
-                  <span class="summary-stat__number">{{ lessons.length - completedLessons }}</span>
+                  <span class="summary-stat__number">{{ lessons.length - (currentModule.completedLessons || currentModule.completed_lessons || completedLessons) }}</span>
                   <span class="summary-stat__label">Pendientes</span>
                 </div>
                 <div class="summary-stat">
-                  <span class="summary-stat__number">{{ currentModule.pointsEarned || 0 }}</span>
+                  <span class="summary-stat__number">{{ currentModule.pointsEarned || currentModule.points_earned || 0 }}</span>
                   <span class="summary-stat__label">Puntos</span>
                 </div>
               </div>
@@ -279,7 +279,6 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 import {
   ArrowLeft, ChevronRight, Clock, Target, BookOpen, CheckCircle2,
@@ -290,11 +289,9 @@ import {
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const userStore = useUserStore()
 
-// Datos reales de los stores
-const { user, isAuthenticated } = storeToRefs(authStore)
-const { modulesStats } = storeToRefs(userStore)
+// 🔧 ARREGLADO: Manejo seguro de stores
+const { user, isAuthenticated, userProgress } = storeToRefs(authStore)
 
 // Estado reactivo
 const isLoading = ref(true)
@@ -304,7 +301,115 @@ const selectedAnswer = ref(null)
 const showCorrectAnswer = ref(false)
 const isCompletingLesson = ref(false)
 
-// 📚 DEFINICIONES DE MÓDULOS SIMPLIFICADAS
+// 🆕 PERSISTENCIA DE ESTADO (para arreglar problema de F5)
+const getStorageKey = (suffix) => {
+  return `module_${route.params.moduleId}_${suffix}`
+}
+
+const saveState = () => {
+  try {
+    localStorage.setItem(getStorageKey('lessonIndex'), currentLessonIndex.value.toString())
+    localStorage.setItem(getStorageKey('questionIndex'), currentQuestionIndex.value.toString())
+  } catch (error) {
+    console.warn('Error guardando estado:', error)
+  }
+}
+
+const loadState = () => {
+  try {
+    const savedLessonIndex = localStorage.getItem(getStorageKey('lessonIndex'))
+    const savedQuestionIndex = localStorage.getItem(getStorageKey('questionIndex'))
+
+    if (savedLessonIndex !== null) {
+      const lessonIndex = parseInt(savedLessonIndex)
+      if (lessonIndex >= 0 && lessonIndex < lessons.value.length) {
+        if (lessonIndex === 0 || lessons.value[lessonIndex - 1]?.completed) {
+          currentLessonIndex.value = lessonIndex
+        }
+      }
+    }
+
+    if (savedQuestionIndex !== null) {
+      const questionIndex = parseInt(savedQuestionIndex)
+      if (questionIndex >= 0) {
+        currentQuestionIndex.value = questionIndex
+      }
+    }
+  } catch (error) {
+    console.warn('Error cargando estado:', error)
+  }
+}
+
+const clearState = () => {
+  try {
+    localStorage.removeItem(getStorageKey('lessonIndex'))
+    localStorage.removeItem(getStorageKey('questionIndex'))
+  } catch (error) {
+    console.warn('Error limpiando estado:', error)
+  }
+}
+
+// 🆕 DEPURACIÓN: Función para ver exactamente qué datos tenemos
+const debugModuleData = () => {
+  console.log('🔍 DEPURACIÓN DE DATOS:')
+  console.log('📊 userProgress.value:', userProgress.value)
+  console.log('📊 modulesStats.value:', modulesStats.value)
+
+  // 🆕 Mostrar estructura de un módulo de ejemplo
+  if (modulesStats.value && modulesStats.value.length > 0) {
+    console.log('📊 Ejemplo de módulo desde Supabase:', modulesStats.value[0])
+    console.log('📊 Campos disponibles:', Object.keys(modulesStats.value[0]))
+  }
+
+  console.log('📊 currentModule.value:', currentModule.value)
+  console.log('📊 lessons.value:', lessons.value?.map(l => ({ title: l.title, completed: l.completed })))
+}
+
+// 🔧 ARREGLADO: Cargar datos reales desde Supabase
+const modulesStats = computed(() => {
+  // Si hay datos de userProgress en authStore, usarlos
+  if (userProgress.value?.modules) {
+    console.log('✅ Usando datos de userProgress:', userProgress.value.modules)
+    return userProgress.value.modules
+  }
+
+  // 🆕 DEPURACIÓN: Verificar si hay datos en otra estructura
+  if (userProgress.value) {
+    console.log('⚠️ userProgress existe pero no tiene modules:', userProgress.value)
+  }
+
+  // Fallback temporal mientras se cargan los datos
+  console.log('⚠️ No hay datos de módulos, usando fallback vacío')
+  return []
+})
+
+// 🆕 MEJORADO: Cargar progreso real desde Supabase
+const loadModuleData = async (moduleId) => {
+  try {
+    if (!user.value?.id) {
+      console.log('⚠️ No hay usuario para cargar datos')
+      return null
+    }
+
+    // Verificar si existe el método loadUserProgress
+    if (authStore.loadUserProgress && typeof authStore.loadUserProgress === 'function') {
+      console.log('📊 Cargando progreso desde Supabase...')
+      await authStore.loadUserProgress()
+      console.log('✅ Progreso cargado desde Supabase')
+
+      return modulesStats.value.find(m => m.module_id === moduleId)
+    } else {
+      console.warn('⚠️ authStore.loadUserProgress no está disponible')
+      console.log('💡 Funcionando con datos locales por ahora')
+      return null
+    }
+  } catch (error) {
+    console.error('💥 Error cargando datos del módulo:', error)
+    return null
+  }
+}
+
+// 📚 DEFINICIONES DE MÓDULOS COMPLETAS
 const moduleDefinitions = {
   'module-0': {
     title: 'Fundamentos',
@@ -454,58 +559,408 @@ git push origin main</code></pre>
           {
             instruction: "Configura tu email",
             command: "git config --global user.email \"tu@email.com\""
+          },
+          {
+            instruction: "Verifica tu configuración",
+            command: "git config --list"
           }
         ]
       },
       {
         id: 'lesson-1-2',
-        title: 'Primer Repositorio',
-        description: 'Crea tu primer repositorio con Git',
+        title: 'Crear tu Primer Repositorio',
+        description: 'Inicializa tu primer repositorio Git',
         type: 'Práctica',
         duration: '20 min',
         points: 100,
         completed: false,
-        objective: 'Inicializa un repositorio Git y realiza tu primer commit',
+        objective: 'Crear un directorio, inicializar Git y hacer tu primer commit',
         steps: [
+          {
+            instruction: "Crea un directorio para tu proyecto",
+            command: "mkdir mi-primer-repo && cd mi-primer-repo"
+          },
           {
             instruction: "Inicializa un repositorio Git",
             command: "git init"
+          },
+          {
+            instruction: "Crea un archivo README",
+            command: "echo '# Mi Primer Repositorio' > README.md"
           },
           {
             instruction: "Verifica el estado del repositorio",
             command: "git status"
           },
           {
-            instruction: "Añade archivos al staging",
-            command: "git add ."
+            instruction: "Añade el archivo al staging area",
+            command: "git add README.md"
           },
           {
             instruction: "Realiza tu primer commit",
-            command: "git commit -m \"Initial commit\""
+            command: "git commit -m \"Primer commit: añadir README\""
           }
         ]
+      },
+      {
+        id: 'lesson-1-3',
+        title: 'Entendiendo el Flujo de Git',
+        description: 'Aprende las tres áreas de Git: Working Directory, Staging Area y Repository',
+        type: 'Teoría',
+        duration: '15 min',
+        points: 75,
+        completed: false,
+        content: `
+          <div class="content-section">
+            <h3>Las Tres Áreas de Git</h3>
+            <p>Git tiene tres áreas principales donde pueden estar tus archivos:</p>
+
+            <h4>1. 🗂️ Working Directory (Directorio de Trabajo)</h4>
+            <ul>
+              <li>Es donde trabajas con tus archivos</li>
+              <li>Los cambios aquí no están siendo rastreados por Git</li>
+              <li>Cuando modificas un archivo, está en el working directory</li>
+            </ul>
+
+            <h4>2. 📋 Staging Area (Área de Preparación)</h4>
+            <ul>
+              <li>Es como una "lista de compras" de cambios</li>
+              <li>Preparas los cambios que quieres incluir en el próximo commit</li>
+              <li>Usas <code>git add</code> para mover archivos aquí</li>
+            </ul>
+
+            <h4>3. 📦 Repository (Repositorio)</h4>
+            <ul>
+              <li>Es donde Git guarda permanentemente tus cambios</li>
+              <li>Cada commit crea una "fotografía" de tu proyecto</li>
+              <li>Usas <code>git commit</code> para guardar cambios aquí</li>
+            </ul>
+
+            <div class="code-example">
+              <div class="code-example__header">
+                <span class="code-example__title">Flujo típico</span>
+              </div>
+              <pre class="code-example__body"><code># 1. Modificas archivos (Working Directory)
+echo "Nuevo contenido" >> archivo.txt
+
+# 2. Preparas los cambios (Staging Area)
+git add archivo.txt
+
+# 3. Confirmas los cambios (Repository)
+git commit -m "Actualizar archivo.txt"</code></pre>
+            </div>
+          </div>
+        `
+      },
+      {
+        id: 'lesson-1-4',
+        title: 'Trabajando con Archivos',
+        description: 'Practica añadir, modificar y confirmar cambios',
+        type: 'Práctica',
+        duration: '25 min',
+        points: 125,
+        completed: false,
+        objective: 'Crear múltiples archivos, hacer cambios y practicar el flujo de Git',
+        steps: [
+          {
+            instruction: "Crea un archivo de código",
+            command: "echo 'console.log(\"¡Hola mundo!\");' > app.js"
+          },
+          {
+            instruction: "Crea un archivo de configuración",
+            command: "echo '{\"name\": \"mi-proyecto\", \"version\": \"1.0.0\"}' > package.json"
+          },
+          {
+            instruction: "Verifica qué archivos están sin rastrear",
+            command: "git status"
+          },
+          {
+            instruction: "Añade todos los archivos nuevos",
+            command: "git add ."
+          },
+          {
+            instruction: "Confirma los nuevos archivos",
+            command: "git commit -m \"Añadir app.js y package.json\""
+          },
+          {
+            instruction: "Modifica el archivo README",
+            command: "echo '\\n## Descripción\\nEste es mi primer proyecto con Git' >> README.md"
+          },
+          {
+            instruction: "Ve las diferencias de lo que cambió",
+            command: "git diff"
+          },
+          {
+            instruction: "Añade y confirma los cambios",
+            command: "git add README.md && git commit -m \"Actualizar README con descripción\""
+          }
+        ]
+      },
+      {
+        id: 'lesson-1-5',
+        title: 'Quiz: Tu Primer Repositorio',
+        description: 'Evalúa lo aprendido sobre repositorios y commits',
+        type: 'Quiz',
+        duration: '10 min',
+        points: 150,
+        completed: false,
+        questions: [
+          {
+            question: '¿Qué comando usas para inicializar un repositorio Git?',
+            options: [
+              'git start',
+              'git init',
+              'git create',
+              'git new'
+            ],
+            correct: 1,
+            explanation: 'git init inicializa un nuevo repositorio Git en el directorio actual.'
+          },
+          {
+            question: '¿En qué área están los archivos después de usar "git add"?',
+            options: [
+              'Working Directory',
+              'Repository',
+              'Staging Area',
+              'Remote Repository'
+            ],
+            correct: 2,
+            explanation: 'Después de git add, los archivos están en el Staging Area, listos para el próximo commit.'
+          },
+          {
+            question: '¿Cuál es la diferencia entre "git add ." y "git add archivo.txt"?',
+            options: [
+              'No hay diferencia',
+              'git add . añade todos los archivos, git add archivo.txt solo uno específico',
+              'git add . es más lento',
+              'git add archivo.txt no funciona'
+            ],
+            correct: 1,
+            explanation: 'git add . añade todos los archivos modificados al staging area, mientras que git add archivo.txt solo añade ese archivo específico.'
+          },
+          {
+            question: '¿Qué hace el comando "git status"?',
+            options: [
+              'Crea un nuevo commit',
+              'Muestra el estado actual del repositorio',
+              'Elimina archivos',
+              'Configura Git'
+            ],
+            correct: 1,
+            explanation: 'git status muestra el estado actual del repositorio, incluyendo archivos modificados, en staging area y sin rastrear.'
+          }
+        ]
+      }
+    ]
+  },
+  'module-2': {
+    title: 'El Arte de Ramificar',
+    description: 'Domina branches, merge y el trabajo colaborativo',
+    difficulty: 'Intermedio',
+    estimatedTime: '90 min',
+    color: '#a5a5ff',
+    icon: GitBranch,
+    lessons: [
+      {
+        id: 'lesson-2-1',
+        title: '¿Qué son las Ramas?',
+        description: 'Introducción al concepto de branching',
+        type: 'Teoría',
+        duration: '15 min',
+        points: 75,
+        completed: false,
+        content: `
+          <div class="content-section">
+            <h3>¿Qué son las Ramas (Branches)?</h3>
+            <p>Las ramas en Git son como <strong>líneas de tiempo paralelas</strong> de tu proyecto. Te permiten trabajar en diferentes características sin afectar el código principal.</p>
+            <p>Cada repositorio Git tiene una rama principal llamada <code>main</code> (o <code>master</code> en repositorios más antiguos).</p>
+            <h4>¿Por qué usar ramas?</h4>
+            <ul>
+              <li><strong>Experimentación segura:</strong> Prueba ideas sin romper el código principal</li>
+              <li><strong>Colaboración:</strong> Cada desarrollador puede trabajar en su propia rama</li>
+              <li><strong>Organización:</strong> Separa diferentes características del proyecto</li>
+              <li><strong>Historial limpio:</strong> Mantén un historial de commits organizado</li>
+            </ul>
+          </div>
+        `
+      }
+    ]
+  },
+  'module-3': {
+    title: 'Colaboración y Remotos',
+    description: 'Trabaja en equipo con Git y GitHub',
+    difficulty: 'Intermedio',
+    estimatedTime: '75 min',
+    color: '#c4b5fd',
+    icon: Share2,
+    lessons: [
+      {
+        id: 'lesson-3-1',
+        title: 'Entendiendo los Remotos',
+        description: 'Qué son los repositorios remotos y por qué los necesitas',
+        type: 'Teoría',
+        duration: '15 min',
+        points: 75,
+        completed: false,
+        content: `
+          <div class="content-section">
+            <h3>Repositorios Remotos</h3>
+            <p>Un <strong>repositorio remoto</strong> es una versión de tu proyecto que está hospedada en internet o en otra red.</p>
+            <p>GitHub, GitLab y Bitbucket son ejemplos de servicios que hospedan repositorios remotos.</p>
+            <h4>¿Por qué usar remotos?</h4>
+            <ul>
+              <li><strong>Backup:</strong> Tu código está seguro en la nube</li>
+              <li><strong>Colaboración:</strong> Otros pueden contribuir a tu proyecto</li>
+              <li><strong>Sincronización:</strong> Trabaja desde múltiples computadoras</li>
+              <li><strong>Distribución:</strong> Comparte tu código con el mundo</li>
+            </ul>
+          </div>
+        `
+      }
+    ]
+  },
+  'module-4': {
+    title: 'La Forja',
+    description: 'Técnicas avanzadas y herramientas especializadas',
+    difficulty: 'Avanzado',
+    estimatedTime: '120 min',
+    color: '#fbbf24',
+    icon: Zap,
+    lessons: [
+      {
+        id: 'lesson-4-1',
+        title: 'Técnicas Avanzadas',
+        description: 'Herramientas avanzadas de Git',
+        type: 'Teoría',
+        duration: '20 min',
+        points: 100,
+        completed: false,
+        content: `
+          <div class="content-section">
+            <h3>Técnicas Avanzadas de Git</h3>
+            <p>Una vez que domines lo básico, Git tiene herramientas poderosas para situaciones más complejas.</p>
+            <p>Este módulo cubre técnicas como rebase, cherry-pick, stash y resolución de conflictos.</p>
+          </div>
+        `
+      }
+    ]
+  },
+  'module-5': {
+    title: 'Biblioteca de Comandos',
+    description: 'Referencia completa de comandos Git',
+    difficulty: 'Referencia',
+    estimatedTime: '30 min',
+    color: '#34d399',
+    icon: Book,
+    lessons: [
+      {
+        id: 'lesson-5-1',
+        title: 'Guía de Referencia Rápida',
+        description: 'Los comandos más importantes de Git',
+        type: 'Teoría',
+        duration: '30 min',
+        points: 50,
+        completed: false,
+        content: `
+          <div class="content-section">
+            <h3>Comandos Esenciales de Git</h3>
+            <p>Una referencia rápida de los comandos más utilizados en Git.</p>
+            <div class="code-example">
+              <div class="code-example__header">
+                <span class="code-example__title">Comandos básicos</span>
+              </div>
+              <pre class="code-example__body"><code># Configuración
+git config --global user.name "Tu Nombre"
+git config --global user.email "tu@email.com"
+
+# Repositorio
+git init
+git clone url-del-repositorio
+
+# Cambios
+git status
+git add .
+git commit -m "Mensaje"
+git push
+git pull</code></pre>
+            </div>
+          </div>
+        `
       }
     ]
   }
 }
 
-// Computed properties
+// 🔧 CORREGIDO: Sincronización real con datos de Supabase
 const currentModule = computed(() => {
   const moduleId = route.params.moduleId
-  const moduleStats = modulesStats.value.find(m => m.id === moduleId)
   const moduleDefinition = moduleDefinitions[moduleId]
 
-  if (!moduleStats || !moduleDefinition) return null
-
-  return {
-    ...moduleDefinition,
-    ...moduleStats
+  if (!moduleDefinition) {
+    console.error('Definición de módulo no encontrada:', moduleId)
+    return null
   }
+
+  // Buscar datos reales de Supabase
+  const moduleData = modulesStats.value?.find(m => m.module_id === moduleId)
+  console.log('📊 Datos de Supabase para', moduleId, ':', moduleData)
+
+  // Combinar definición local con datos de Supabase
+  let combinedModule = {
+    id: moduleId,
+    ...moduleDefinition,
+    // Sobrescribir con datos reales de Supabase si existen
+    ...(moduleData || {}),
+    // Asegurar que las lecciones vengan de la definición local
+    lessons: [...(moduleDefinition.lessons || [])]
+  }
+
+  // 🆕 CORREGIDO: Sincronizar lecciones completadas con Supabase
+  if (moduleData && combinedModule.lessons.length > 0) {
+    // Usar los campos correctos de Supabase
+    const completedLessonsCount = moduleData.completed_lessons || 0
+    const progressPercentage = moduleData.progress_percentage || 0
+    const pointsEarned = moduleData.points_earned || 0
+
+    console.log('✅ Sincronizando lecciones:', {
+      completedCount: completedLessonsCount,
+      progress: progressPercentage,
+      points: pointsEarned,
+      totalLessons: combinedModule.lessons.length
+    })
+
+    // Marcar lecciones como completadas basándose en completed_lessons
+    combinedModule.lessons = combinedModule.lessons.map((lesson, index) => ({
+      ...lesson,
+      completed: index < completedLessonsCount
+    }))
+
+    // Actualizar progress y otros datos con campos de Supabase
+    combinedModule.progress = progressPercentage
+    combinedModule.completedLessons = completedLessonsCount
+    combinedModule.pointsEarned = pointsEarned
+    combinedModule.isCompleted = progressPercentage >= 100
+  }
+
+  console.log('🎯 Módulo sincronizado:', {
+    id: combinedModule.id,
+    progress: combinedModule.progress,
+    completedLessons: combinedModule.completedLessons,
+    lessons: combinedModule.lessons.map(l => ({ title: l.title, completed: l.completed }))
+  })
+
+  return combinedModule
 })
 
 const lessons = computed(() => {
-  if (!currentModule.value) return []
-  return currentModule.value.lessons || []
+  if (!currentModule.value) {
+    console.log('No current module available')
+    return []
+  }
+
+  const lessonsList = currentModule.value.lessons || []
+  console.log('Available lessons:', lessonsList.length)
+  return lessonsList
 })
 
 const currentLesson = computed(() => {
@@ -531,10 +986,10 @@ const allLessonsCompleted = computed(() => {
 
 // Métodos
 const selectLesson = (index) => {
-  // Solo permite seleccionar si es la primera lección o la anterior está completada
   if (index === 0 || lessons.value[index - 1]?.completed) {
     currentLessonIndex.value = index
-    resetQuizState()
+    resetQuizQuestion()
+    saveState()
   }
 }
 
@@ -547,24 +1002,31 @@ const completeLesson = async () => {
     // Marcar como completada localmente
     currentLesson.value.completed = true
 
-    // Completar lección en Supabase (si existe el método)
-    if (authStore.completeLesson) {
+    // 🔧 MEJORADO: Verificar que existe el método antes de usarlo
+    if (authStore.completeLesson && typeof authStore.completeLesson === 'function') {
+      console.log('💾 Guardando en Supabase...')
       await authStore.completeLesson(
         currentModule.value.id,
         currentLesson.value.id,
         currentLesson.value.title,
         currentLesson.value.points
       )
+      console.log('✅ Guardado en Supabase')
+    } else {
+      console.warn('⚠️ authStore.completeLesson no está disponible')
     }
 
     // Mostrar notificación
-    if (window.addToast) {
+    if (typeof window !== 'undefined' && window.addToast) {
       window.addToast(
         `¡Lección completada! +${currentLesson.value.points} puntos`,
         'success',
         3000
       )
     }
+
+    // Limpiar estado del localStorage
+    clearState()
 
     // Auto-avanzar a la siguiente lección
     setTimeout(() => {
@@ -574,7 +1036,9 @@ const completeLesson = async () => {
     }, 1500)
 
   } catch (error) {
-    console.error('Error completando lección:', error)
+    console.error('💥 Error completando lección:', error)
+    // Revertir cambio local si hay error
+    currentLesson.value.completed = false
   } finally {
     isCompletingLesson.value = false
   }
@@ -583,19 +1047,20 @@ const completeLesson = async () => {
 const nextLesson = () => {
   if (currentLessonIndex.value < lessons.value.length - 1) {
     currentLessonIndex.value++
-    resetQuizState()
+    resetQuizQuestion()
+    saveState()
   }
 }
 
 const previousLesson = () => {
   if (currentLessonIndex.value > 0) {
     currentLessonIndex.value--
-    resetQuizState()
+    resetQuizQuestion()
+    saveState()
   }
 }
 
 const completeModule = async () => {
-  // Completar módulo y dar achievement
   if (authStore.awardAchievement) {
     await authStore.awardAchievement(
       `module_${currentModule.value.id}_complete`,
@@ -606,13 +1071,14 @@ const completeModule = async () => {
     )
   }
 
+  clearState()
   router.push('/dashboard')
 }
 
 const copyCode = async (code) => {
   try {
     await navigator.clipboard.writeText(code)
-    if (window.addToast) {
+    if (typeof window !== 'undefined' && window.addToast) {
       window.addToast('Código copiado al portapapeles', 'success', 2000)
     }
   } catch (err) {
@@ -620,18 +1086,22 @@ const copyCode = async (code) => {
   }
 }
 
-// Quiz methods - ARREGLADOS
+// 🔧 Quiz methods - CORREGIDOS
 const selectAnswer = (index) => {
   if (showCorrectAnswer.value) return
   selectedAnswer.value = index
   showCorrectAnswer.value = true
 }
 
+// 🆕 CORREGIDO: nextQuestion ya no resetea currentQuestionIndex incorrectamente
 const nextQuestion = () => {
   if (currentQuestionIndex.value < currentLesson.value.questions.length - 1) {
     // Siguiente pregunta
     currentQuestionIndex.value++
-    resetQuizState()
+    // Solo resetear respuesta, NO el índice de pregunta
+    selectedAnswer.value = null
+    showCorrectAnswer.value = false
+    saveState()
   } else {
     // Quiz completado
     currentLesson.value.completed = true
@@ -639,15 +1109,26 @@ const nextQuestion = () => {
   }
 }
 
+// 🔧 CORREGIDO: Solo para resetear respuestas, NO currentQuestionIndex
 const resetQuizState = () => {
   selectedAnswer.value = null
   showCorrectAnswer.value = false
-  currentQuestionIndex.value = 0
+  // ❌ NO resetear currentQuestionIndex aquí
 }
 
-// Lifecycle
+// 🆕 Método específico para resetear pregunta al cambiar lección
+const resetQuizQuestion = () => {
+  currentQuestionIndex.value = 0
+  selectedAnswer.value = null
+  showCorrectAnswer.value = false
+}
+
+// 🔧 MEJORADO: Lifecycle con carga de datos reales
 onMounted(async () => {
+  console.log('🚀 ModuleView iniciando...')
+
   if (!isAuthenticated.value) {
+    console.log('❌ Usuario no autenticado')
     router.push('/login')
     return
   }
@@ -655,29 +1136,71 @@ onMounted(async () => {
   try {
     isLoading.value = true
 
-    // Verificar que el módulo existe
-    if (!currentModule.value) {
+    // Verificar que el módulo existe en las definiciones
+    const moduleId = route.params.moduleId
+    if (!moduleDefinitions[moduleId]) {
+      console.error('❌ Módulo no existe:', moduleId)
       router.push('/dashboard')
       return
     }
 
-    // Seleccionar primera lección no completada
-    const firstIncomplete = lessons.value.findIndex(lesson => !lesson.completed)
-    if (firstIncomplete !== -1) {
-      currentLessonIndex.value = firstIncomplete
+    // 🆕 DEPURACIÓN inicial
+    console.log('🔍 Estado inicial:')
+    debugModuleData()
+
+    // 🆕 Cargar datos reales desde Supabase
+    console.log('📊 Intentando cargar datos de Supabase...')
+    await loadModuleData(moduleId)
+
+    // 🆕 DEPURACIÓN después de cargar
+    console.log('🔍 Estado después de cargar datos:')
+    debugModuleData()
+
+    // Esperar a que se actualicen los computed
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    // 🆕 DEPURACIÓN final
+    console.log('🔍 Estado final:')
+    debugModuleData()
+
+    // 🆕 Cargar estado persistido (F5)
+    loadState()
+
+    // Seleccionar lección apropiada
+    if (lessons.value.length > 0) {
+      if (currentLessonIndex.value === 0) {
+        // Buscar primera lección no completada
+        const firstIncomplete = lessons.value.findIndex(lesson => !lesson.completed)
+        if (firstIncomplete !== -1) {
+          console.log('📚 Seleccionando primera lección no completada:', firstIncomplete)
+          currentLessonIndex.value = firstIncomplete
+        } else {
+          console.log('🎉 Todas las lecciones están completadas!')
+        }
+      }
     }
 
+    console.log('✅ ModuleView cargado correctamente')
+
   } catch (error) {
-    console.error('Error cargando módulo:', error)
+    console.error('💥 Error cargando módulo:', error)
   } finally {
     isLoading.value = false
   }
 })
 
-// Watcher para cambios de módulo
+// 🔧 Watchers mejorados
 watch(() => route.params.moduleId, () => {
   currentLessonIndex.value = 0
-  resetQuizState()
+  resetQuizQuestion()
+  clearState()
+})
+
+watch(currentLessonIndex, (newIndex, oldIndex) => {
+  if (newIndex !== oldIndex) {
+    resetQuizQuestion()
+    saveState()
+  }
 })
 </script>
 
@@ -1062,6 +1585,10 @@ watch(() => route.params.moduleId, () => {
     align-items: flex-start;
   }
 
+  &__main {
+    flex: 1;
+  }
+
   &__title {
     font-size: 1.5rem;
     font-weight: 600;
@@ -1072,6 +1599,30 @@ watch(() => route.params.moduleId, () => {
   &__description {
     color: $text-secondary;
   }
+
+  &__meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
+}
+
+.lesson-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid $border;
+}
+
+.lesson-completed {
+  @include flex-center;
+  gap: 0.5rem;
+  color: $success;
+  font-weight: 500;
 }
 
 .lesson-body {
