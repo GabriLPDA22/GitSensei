@@ -79,7 +79,7 @@
       <!-- Features Section -->
       <section class="features">
         <div class="container">
-          <h2 class="section__title">¿Por qué elegir nuestra plataforma?</h2>
+          <h2 class="section__title">¿Por qué elegir esta plataforma?</h2>
           <div class="features__grid">
             <div class="feature-card">
               <div class="feature-card__icon">

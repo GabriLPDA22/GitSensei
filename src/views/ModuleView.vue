@@ -1,7 +1,13 @@
 <template>
   <div class="module-view">
+    <!-- Loading state -->
+    <div v-if="isLoading" class="loading-container">
+      <div class="spinner"></div>
+      <p>Cargando módulo...</p>
+    </div>
+
     <!-- Header del Módulo -->
-    <div class="module-header">
+    <div v-else-if="currentModule" class="module-header">
       <div class="container">
         <div class="module-header__content">
           <!-- Breadcrumb -->
@@ -11,52 +17,46 @@
               Dashboard
             </router-link>
             <ChevronRight class="w-4 h-4 text-text-muted" />
-            <span class="breadcrumb__current">{{ currentModule?.title }}</span>
+            <span class="breadcrumb__current">{{ currentModule.title }}</span>
           </nav>
 
           <!-- Info del módulo -->
           <div class="module-info">
             <div class="module-info__main">
-              <div class="module-info__icon" :style="{ backgroundColor: currentModule?.color }">
-                <component :is="currentModule?.icon" class="w-8 h-8" />
+              <div class="module-info__icon" :style="{ backgroundColor: currentModule.color }">
+                <component :is="currentModule.icon" class="w-8 h-8" />
               </div>
               <div class="module-info__details">
-                <h1 class="module-info__title">{{ currentModule?.title }}</h1>
-                <p class="module-info__description">{{ currentModule?.description }}</p>
+                <h1 class="module-info__title">{{ currentModule.title }}</h1>
+                <p class="module-info__description">{{ currentModule.description }}</p>
                 <div class="module-info__meta">
-                  <span class="meta-badge">{{ currentModule?.difficulty }}</span>
+                  <span class="meta-badge">{{ currentModule.difficulty }}</span>
                   <span class="meta-item">
                     <Clock class="w-4 h-4" />
-                    {{ currentModule?.duration }}
+                    {{ currentModule.estimatedTime }}
                   </span>
                   <span class="meta-item">
                     <Target class="w-4 h-4" />
-                    {{ currentModule?.lessons?.length }} lecciones
+                    {{ currentModule.totalLessons }} lecciones
+                  </span>
+                  <span class="meta-item">
+                    <Star class="w-4 h-4" />
+                    {{ currentModule.pointsEarned || 0 }} puntos
                   </span>
                 </div>
               </div>
             </div>
 
-            <!-- Progreso del módulo -->
+            <!-- Progreso del módulo REAL -->
             <div class="module-progress">
               <div class="progress-circle">
                 <svg class="progress-circle__svg" viewBox="0 0 100 100">
-                  <circle
-                    class="progress-circle__bg"
-                    cx="50"
-                    cy="50"
-                    r="45"
-                  />
-                  <circle
-                    class="progress-circle__fill"
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    :stroke-dasharray="`${moduleProgress * 2.83} 283`"
-                  />
+                  <circle class="progress-circle__bg" cx="50" cy="50" r="45" />
+                  <circle class="progress-circle__fill" cx="50" cy="50" r="45"
+                    :stroke-dasharray="`${currentModule.progress || 0 * 2.83} 283`" />
                 </svg>
                 <div class="progress-circle__content">
-                  <span class="progress-circle__percentage">{{ moduleProgress }}%</span>
+                  <span class="progress-circle__percentage">{{ currentModule.progress || 0 }}%</span>
                   <span class="progress-circle__label">Completado</span>
                 </div>
               </div>
@@ -67,10 +67,10 @@
     </div>
 
     <!-- Contenido del Módulo -->
-    <div class="module-content">
+    <div v-if="currentModule" class="module-content">
       <div class="container">
         <div class="module-layout">
-          <!-- Lista de Lecciones -->
+          <!-- Lista de Lecciones SIMPLIFICADA -->
           <div class="lessons-sidebar">
             <div class="lessons-header">
               <h3 class="lessons-title">
@@ -80,20 +80,14 @@
             </div>
 
             <div class="lessons-list">
-              <div
-                v-for="(lesson, index) in currentModule?.lessons"
-                :key="lesson.id"
-                class="lesson-item"
-                :class="{
-                  'lesson-item--active': lesson.id === currentLesson?.id,
-                  'lesson-item--completed': lesson.completed,
-                  'lesson-item--locked': lesson.locked
-                }"
-                @click="selectLesson(lesson, index)"
-              >
+              <div v-for="(lesson, index) in lessons" :key="lesson.id" class="lesson-item" :class="{
+                'lesson-item--active': index === currentLessonIndex,
+                'lesson-item--completed': lesson.completed,
+                'lesson-item--locked': index > 0 && !lessons[index - 1]?.completed
+              }" @click="selectLesson(index)">
                 <div class="lesson-item__number">
                   <CheckCircle2 v-if="lesson.completed" class="w-4 h-4" />
-                  <Play v-else-if="!lesson.locked" class="w-4 h-4" />
+                  <Play v-else-if="index === 0 || lessons[index - 1]?.completed" class="w-4 h-4" />
                   <Lock v-else class="w-4 h-4" />
                 </div>
                 <div class="lesson-item__content">
@@ -113,12 +107,12 @@
                   <span class="summary-stat__label">Completadas</span>
                 </div>
                 <div class="summary-stat">
-                  <span class="summary-stat__number">{{ totalLessons - completedLessons }}</span>
+                  <span class="summary-stat__number">{{ lessons.length - completedLessons }}</span>
                   <span class="summary-stat__label">Pendientes</span>
                 </div>
                 <div class="summary-stat">
-                  <span class="summary-stat__number">{{ estimatedTime }}</span>
-                  <span class="summary-stat__label">min restantes</span>
+                  <span class="summary-stat__number">{{ currentModule.pointsEarned || 0 }}</span>
+                  <span class="summary-stat__label">Puntos</span>
                 </div>
               </div>
             </div>
@@ -134,42 +128,23 @@
                   <p class="lesson-header__description">{{ currentLesson.description }}</p>
                 </div>
                 <div class="lesson-header__actions">
-                  <button
-                    v-if="currentLesson.completed"
-                    class="btn btn--success btn--small"
-                  >
+                  <button v-if="currentLesson.completed" class="btn btn--success btn--small">
                     <CheckCircle2 class="w-4 h-4 mr-1" />
                     Completada
                   </button>
-                  <button
-                    v-else
-                    class="btn btn--primary btn--small"
-                    @click="markAsCompleted"
-                  >
-                    Marcar como Completada
+                  <button v-else-if="currentLesson.type !== 'Quiz'" class="btn btn--primary btn--small"
+                    @click="completeLesson" :disabled="isCompletingLesson">
+                    <div v-if="isCompletingLesson" class="mini-spinner"></div>
+                    {{ isCompletingLesson ? 'Guardando...' : 'Marcar como Completada' }}
                   </button>
                 </div>
               </div>
 
-              <!-- Contenido según el tipo de lección -->
+              <!-- Contenido de la lección -->
               <div class="lesson-body">
                 <!-- Lección Teórica -->
                 <div v-if="currentLesson.type === 'Teoría'" class="theory-content">
-                  <div class="content-section" v-for="section in currentLesson.content" :key="section.id">
-                    <h3 class="content-section__title">{{ section.title }}</h3>
-                    <div class="content-section__body" v-html="section.content"></div>
-
-                    <!-- Código de ejemplo -->
-                    <div v-if="section.codeExample" class="code-example">
-                      <div class="code-example__header">
-                        <span class="code-example__title">Ejemplo</span>
-                        <button class="code-example__copy" @click="copyCode(section.codeExample)">
-                          <Copy class="w-4 h-4" />
-                        </button>
-                      </div>
-                      <pre class="code-example__body"><code>{{ section.codeExample }}</code></pre>
-                    </div>
-                  </div>
+                  <div v-html="currentLesson.content"></div>
                 </div>
 
                 <!-- Ejercicio Práctico -->
@@ -179,68 +154,62 @@
                     <p class="practice-instructions__text">{{ currentLesson.objective }}</p>
                   </div>
 
-                  <!-- Terminal Simulator Component -->
-                  <div class="terminal-container">
-                    <TerminalSimulator
-                      :exercise="currentLesson.exercise"
-                      @exercise-completed="onExerciseCompleted"
-                    />
-                  </div>
-
-                  <!-- Hints expandibles -->
-                  <div class="hints-section">
-                    <button
-                      class="hints-toggle"
-                      @click="showHints = !showHints"
-                    >
-                      <Lightbulb class="w-4 h-4" />
-                      {{ showHints ? 'Ocultar Pistas' : 'Ver Pistas' }}
-                      <ChevronDown class="w-4 h-4" :class="{ 'rotate-180': showHints }" />
-                    </button>
-                    <div v-show="showHints" class="hints-content">
-                      <div v-for="(hint, index) in currentLesson.hints" :key="index" class="hint-item">
-                        <span class="hint-item__number">{{ index + 1 }}</span>
-                        <p class="hint-item__text">{{ hint }}</p>
+                  <!-- Simulador de terminal sencillo -->
+                  <div class="terminal-simulator">
+                    <div class="terminal-header">
+                      <div class="terminal-dots">
+                        <span class="dot dot--red"></span>
+                        <span class="dot dot--yellow"></span>
+                        <span class="dot dot--green"></span>
+                      </div>
+                      <span class="terminal-title">Terminal</span>
+                    </div>
+                    <div class="terminal-body">
+                      <div v-for="(step, index) in currentLesson.steps" :key="index" class="terminal-step">
+                        <div class="step-instruction">
+                          <span class="step-number">{{ index + 1 }}</span>
+                          <span class="step-text">{{ step.instruction }}</span>
+                        </div>
+                        <div class="step-command">
+                          <span class="prompt">$</span>
+                          <code class="command">{{ step.command }}</code>
+                          <button @click="copyCode(step.command)" class="copy-mini">
+                            <Copy class="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Quiz -->
+                <!-- Quiz ARREGLADO -->
                 <div v-else-if="currentLesson.type === 'Quiz'" class="quiz-content">
                   <div class="quiz-progress">
                     <span class="quiz-progress__text">
-                      Pregunta {{ currentQuestionIndex + 1 }} de {{ currentLesson.questions?.length }}
+                      Pregunta {{ currentQuestionIndex + 1 }} de {{ currentLesson.questions.length }}
                     </span>
                     <div class="quiz-progress__bar">
-                      <div
-                        class="quiz-progress__fill"
-                        :style="{ width: `${((currentQuestionIndex + 1) / currentLesson.questions?.length) * 100}%` }"
-                      ></div>
+                      <div class="quiz-progress__fill"
+                        :style="{ width: `${((currentQuestionIndex + 1) / currentLesson.questions.length) * 100}%` }">
+                      </div>
                     </div>
                   </div>
 
                   <div v-if="currentQuestion" class="question-container">
                     <h3 class="question-title">{{ currentQuestion.question }}</h3>
                     <div class="question-options">
-                      <button
-                        v-for="(option, index) in currentQuestion.options"
-                        :key="index"
-                        class="option-button"
+                      <button v-for="(option, index) in currentQuestion.options" :key="index" class="option-button"
                         :class="{
                           'option-button--selected': selectedAnswer === index,
-                          'option-button--correct': quizAnswered && index === currentQuestion.correct,
-                          'option-button--incorrect': quizAnswered && selectedAnswer === index && index !== currentQuestion.correct
-                        }"
-                        @click="selectAnswer(index)"
-                        :disabled="quizAnswered"
-                      >
+                          'option-button--correct': showCorrectAnswer && index === currentQuestion.correct,
+                          'option-button--incorrect': showCorrectAnswer && selectedAnswer === index && index !== currentQuestion.correct
+                        }" @click="selectAnswer(index)" :disabled="showCorrectAnswer">
                         <span class="option-letter">{{ String.fromCharCode(65 + index) }}</span>
                         <span class="option-text">{{ option }}</span>
                       </button>
                     </div>
 
-                    <div v-if="quizAnswered" class="question-feedback">
+                    <div v-if="showCorrectAnswer" class="question-feedback">
                       <div class="feedback-message" :class="{ 'feedback-message--correct': isCorrectAnswer }">
                         <CheckCircle2 v-if="isCorrectAnswer" class="w-5 h-5" />
                         <XCircle v-else class="w-5 h-5" />
@@ -249,12 +218,9 @@
                           {{ currentQuestion.explanation }}
                         </span>
                       </div>
-                      <button
-                        class="btn btn--primary"
-                        @click="nextQuestion"
-                      >
-                        {{ currentQuestionIndex < currentLesson.questions.length - 1 ? 'Siguiente Pregunta' : 'Finalizar Quiz' }}
-                      </button>
+                      <button class="btn btn--primary" @click="nextQuestion">
+                        {{ currentQuestionIndex < currentLesson.questions.length - 1 ? 'Siguiente Pregunta'
+                          : 'Finalizar Quiz' }} </button>
                     </div>
                   </div>
                 </div>
@@ -262,36 +228,24 @@
 
               <!-- Navegación de lecciones -->
               <div class="lesson-navigation">
-                <button
-                  v-if="currentLessonIndex > 0"
-                  class="btn btn--secondary"
-                  @click="previousLesson"
-                >
+                <button v-if="currentLessonIndex > 0" class="btn btn--secondary" @click="previousLesson">
                   <ArrowLeft class="w-4 h-4 mr-2" />
                   Anterior
                 </button>
                 <div class="lesson-navigation__spacer"></div>
-                <button
-                  v-if="currentLessonIndex < totalLessons - 1"
-                  class="btn btn--primary"
-                  @click="nextLesson"
-                  :disabled="!currentLesson.completed"
-                >
+                <button v-if="currentLessonIndex < lessons.length - 1" class="btn btn--primary" @click="nextLesson"
+                  :disabled="!currentLesson.completed">
                   Siguiente
                   <ArrowRight class="w-4 h-4 ml-2" />
                 </button>
-                <button
-                  v-else-if="moduleProgress === 100"
-                  class="btn btn--success"
-                  @click="completeModule"
-                >
+                <button v-else-if="allLessonsCompleted" class="btn btn--success" @click="completeModule">
                   <Trophy class="w-4 h-4 mr-2" />
                   Completar Módulo
                 </button>
               </div>
             </div>
 
-            <!-- Estado vacío cuando no hay lección seleccionada -->
+            <!-- Estado vacío -->
             <div v-else class="empty-state">
               <BookOpen class="w-16 h-16 text-text-muted" />
               <h3 class="empty-state__title">Selecciona una lección</h3>
@@ -303,37 +257,60 @@
         </div>
       </div>
     </div>
+
+    <!-- Error state -->
+    <div v-else-if="!isLoading" class="error-state">
+      <div class="container">
+        <div class="error-content">
+          <AlertCircle class="w-16 h-16 text-danger" />
+          <h2 class="error-title">Módulo no encontrado</h2>
+          <p class="error-text">El módulo que buscas no existe o no tienes acceso a él.</p>
+          <router-link to="/dashboard" class="btn btn--primary">
+            <ArrowLeft class="w-4 h-4 mr-2" />
+            Volver al Dashboard
+          </router-link>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'
+import { storeToRefs } from 'pinia'
 import {
   ArrowLeft, ChevronRight, Clock, Target, BookOpen, CheckCircle2,
-  Play, Lock, Copy, Lightbulb, ChevronDown, ArrowRight, Trophy,
-  XCircle, FileText, GitBranch, Database, Share2, Zap, Book
+  Play, Lock, Copy, ArrowRight, Trophy, XCircle, FileText,
+  GitBranch, Database, Share2, Zap, Book, Star, AlertCircle
 } from 'lucide-vue-next'
-// import TerminalSimulator from '@/components/interactive/TerminalSimulator.vue'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
+const userStore = useUserStore()
+
+// Datos reales de los stores
+const { user, isAuthenticated } = storeToRefs(authStore)
+const { modulesStats } = storeToRefs(userStore)
 
 // Estado reactivo
+const isLoading = ref(true)
 const currentLessonIndex = ref(0)
-const showHints = ref(false)
 const currentQuestionIndex = ref(0)
 const selectedAnswer = ref(null)
-const quizAnswered = ref(false)
+const showCorrectAnswer = ref(false)
+const isCompletingLesson = ref(false)
 
-// Datos de módulos (en una app real vendría de una store)
-const modules = ref({
+// 📚 DEFINICIONES DE MÓDULOS SIMPLIFICADAS
+const moduleDefinitions = {
   'module-0': {
-    id: 'module-0',
     title: 'Fundamentos',
     description: 'Conceptos básicos de Git y control de versiones',
     difficulty: 'Principiante',
-    duration: '30 min',
+    estimatedTime: '45 min',
     color: '#58a6ff',
     icon: FileText,
     lessons: [
@@ -343,15 +320,31 @@ const modules = ref({
         description: 'Introducción al concepto de control de versiones',
         type: 'Teoría',
         duration: '10 min',
+        points: 50,
         completed: false,
-        locked: false,
-        content: [
-          {
-            id: 1,
-            title: 'Definición',
-            content: '<p>El control de versiones es un sistema que registra los cambios realizados en un archivo o conjunto de archivos a lo largo del tiempo, de modo que puedas recuperar versiones específicas más adelante.</p>'
-          }
-        ]
+        content: `
+          <div class="content-section">
+            <h3>Definición</h3>
+            <p>El <strong>control de versiones</strong> es un sistema que registra los cambios realizados en un archivo o conjunto de archivos a lo largo del tiempo, de modo que puedas recuperar versiones específicas más adelante.</p>
+
+            <p>Imagina que estás escribiendo un ensayo. Sin control de versiones, podrías tener archivos como:</p>
+            <ul>
+              <li>ensayo.docx</li>
+              <li>ensayo_final.docx</li>
+              <li>ensayo_final_REAL.docx</li>
+              <li>ensayo_final_REAL_v2.docx</li>
+            </ul>
+            <p>Con Git, tienes un solo archivo y un historial completo de todos los cambios.</p>
+
+            <h3>Beneficios del Control de Versiones</h3>
+            <ul>
+              <li><strong>Historial completo:</strong> Puedes ver qué cambios se hicieron, cuándo y por quién</li>
+              <li><strong>Backup automático:</strong> Nunca pierdes trabajo</li>
+              <li><strong>Colaboración:</strong> Múltiples personas pueden trabajar en el mismo proyecto</li>
+              <li><strong>Experimentación segura:</strong> Puedes probar ideas sin miedo a romper nada</li>
+            </ul>
+          </div>
+        `
       },
       {
         id: 'lesson-0-2',
@@ -359,15 +352,43 @@ const modules = ref({
         description: 'Diferencias entre Git y GitHub',
         type: 'Teoría',
         duration: '10 min',
+        points: 50,
         completed: false,
-        locked: false,
-        content: [
-          {
-            id: 1,
-            title: 'Git vs GitHub',
-            content: '<p><strong>Git</strong> es el sistema de control de versiones. <strong>GitHub</strong> es una plataforma que usa Git para alojar repositorios en la nube.</p>'
-          }
-        ]
+        content: `
+          <div class="content-section">
+            <h3>Git vs GitHub</h3>
+            <p>Es muy común confundir estos dos términos, pero son cosas diferentes:</p>
+
+            <h4>🔧 Git</h4>
+            <ul>
+              <li>Es el <strong>sistema de control de versiones</strong></li>
+              <li>Funciona en tu computadora (local)</li>
+              <li>Es una herramienta de línea de comandos</li>
+              <li>Es gratuito y open source</li>
+            </ul>
+
+            <h4>🌐 GitHub</h4>
+            <ul>
+              <li>Es una <strong>plataforma web</strong> que usa Git</li>
+              <li>Almacena tus repositorios en la nube</li>
+              <li>Añade características sociales (issues, pull requests, etc.)</li>
+              <li>Tiene planes gratuitos y de pago</li>
+            </ul>
+
+            <div class="code-example">
+              <div class="code-example__header">
+                <span class="code-example__title">Ejemplo</span>
+              </div>
+              <pre class="code-example__body"><code># Git (local)
+git init
+git add .
+git commit -m "Mi primer commit"
+
+# GitHub (remoto)
+git push origin main</code></pre>
+            </div>
+          </div>
+        `
       },
       {
         id: 'lesson-0-3',
@@ -375,8 +396,8 @@ const modules = ref({
         description: 'Evalúa tu comprensión de los conceptos fundamentales',
         type: 'Quiz',
         duration: '5 min',
+        points: 100,
         completed: false,
-        locked: false,
         questions: [
           {
             question: '¿Qué es Git?',
@@ -388,17 +409,27 @@ const modules = ref({
             ],
             correct: 1,
             explanation: 'Git es un sistema de control de versiones distribuido que permite rastrear cambios en archivos.'
+          },
+          {
+            question: '¿Cuál es la principal diferencia entre Git y GitHub?',
+            options: [
+              'Son lo mismo',
+              'Git es local, GitHub es una plataforma web',
+              'GitHub es más moderno que Git',
+              'Git solo funciona en Windows'
+            ],
+            correct: 1,
+            explanation: 'Git es la herramienta de control de versiones, GitHub es la plataforma web que lo utiliza.'
           }
         ]
       }
     ]
   },
   'module-1': {
-    id: 'module-1',
     title: 'Tu Primer Repositorio',
     description: 'Aprende a crear tu primer repositorio y hacer commits',
     difficulty: 'Principiante',
-    duration: '45 min',
+    estimatedTime: '60 min',
     color: '#39d353',
     icon: Database,
     lessons: [
@@ -406,11 +437,25 @@ const modules = ref({
         id: 'lesson-1-1',
         title: 'Instalación y Configuración',
         description: 'Configura Git en tu sistema',
-        type: 'Teoría',
+        type: 'Práctica',
         duration: '15 min',
+        points: 75,
         completed: false,
-        locked: false,
-        content: []
+        objective: 'Instalar Git y configurar tu identidad global',
+        steps: [
+          {
+            instruction: "Verifica si Git está instalado",
+            command: "git --version"
+          },
+          {
+            instruction: "Configura tu nombre globalmente",
+            command: "git config --global user.name \"Tu Nombre\""
+          },
+          {
+            instruction: "Configura tu email",
+            command: "git config --global user.email \"tu@email.com\""
+          }
+        ]
       },
       {
         id: 'lesson-1-2',
@@ -418,89 +463,125 @@ const modules = ref({
         description: 'Crea tu primer repositorio con Git',
         type: 'Práctica',
         duration: '20 min',
+        points: 100,
         completed: false,
-        locked: false,
         objective: 'Inicializa un repositorio Git y realiza tu primer commit',
-        exercise: {
-          title: "Tu Primer Repositorio",
-          description: "Aprende a inicializar un repositorio Git y hacer tu primer commit.",
-          steps: [
-            {
-              instruction: "Inicializa un nuevo repositorio Git",
-              expectedCommand: "git init",
-              hint: "Usa el comando 'git init' para crear un nuevo repositorio"
-            },
-            {
-              instruction: "Verifica el estado del repositorio",
-              expectedCommand: "git status",
-              hint: "El comando 'git status' te muestra el estado actual"
-            }
-          ]
-        },
-        hints: [
-          'Usa "git init" para inicializar un repositorio',
-          'Siempre verifica el estado con "git status"',
-          'Los archivos nuevos aparecen como "untracked"'
+        steps: [
+          {
+            instruction: "Inicializa un repositorio Git",
+            command: "git init"
+          },
+          {
+            instruction: "Verifica el estado del repositorio",
+            command: "git status"
+          },
+          {
+            instruction: "Añade archivos al staging",
+            command: "git add ."
+          },
+          {
+            instruction: "Realiza tu primer commit",
+            command: "git commit -m \"Initial commit\""
+          }
         ]
       }
     ]
   }
-  // Más módulos...
-})
+}
 
 // Computed properties
 const currentModule = computed(() => {
-  return modules.value[route.params.moduleId]
+  const moduleId = route.params.moduleId
+  const moduleStats = modulesStats.value.find(m => m.id === moduleId)
+  const moduleDefinition = moduleDefinitions[moduleId]
+
+  if (!moduleStats || !moduleDefinition) return null
+
+  return {
+    ...moduleDefinition,
+    ...moduleStats
+  }
+})
+
+const lessons = computed(() => {
+  if (!currentModule.value) return []
+  return currentModule.value.lessons || []
 })
 
 const currentLesson = computed(() => {
-  return currentModule.value?.lessons?.[currentLessonIndex.value]
-})
-
-const totalLessons = computed(() => {
-  return currentModule.value?.lessons?.length || 0
-})
-
-const completedLessons = computed(() => {
-  return currentModule.value?.lessons?.filter(lesson => lesson.completed).length || 0
-})
-
-const moduleProgress = computed(() => {
-  if (totalLessons.value === 0) return 0
-  return Math.round((completedLessons.value / totalLessons.value) * 100)
-})
-
-const estimatedTime = computed(() => {
-  const pendingLessons = currentModule.value?.lessons?.filter(lesson => !lesson.completed) || []
-  return pendingLessons.reduce((total, lesson) => {
-    const duration = parseInt(lesson.duration) || 0
-    return total + duration
-  }, 0)
+  return lessons.value[currentLessonIndex.value]
 })
 
 const currentQuestion = computed(() => {
-  return currentLesson.value?.questions?.[currentQuestionIndex.value]
+  if (!currentLesson.value?.questions) return null
+  return currentLesson.value.questions[currentQuestionIndex.value]
 })
 
 const isCorrectAnswer = computed(() => {
   return selectedAnswer.value === currentQuestion.value?.correct
 })
 
+const completedLessons = computed(() => {
+  return lessons.value.filter(lesson => lesson.completed).length
+})
+
+const allLessonsCompleted = computed(() => {
+  return lessons.value.every(lesson => lesson.completed)
+})
+
 // Métodos
-const selectLesson = (lesson, index) => {
-  if (lesson.locked) return
-  currentLessonIndex.value = index
-  resetQuizState()
+const selectLesson = (index) => {
+  // Solo permite seleccionar si es la primera lección o la anterior está completada
+  if (index === 0 || lessons.value[index - 1]?.completed) {
+    currentLessonIndex.value = index
+    resetQuizState()
+  }
 }
 
-const markAsCompleted = () => {
-  if (currentLesson.value) {
+const completeLesson = async () => {
+  if (!currentLesson.value || !user.value || isCompletingLesson.value) return
+
+  try {
+    isCompletingLesson.value = true
+
+    // Marcar como completada localmente
     currentLesson.value.completed = true
+
+    // Completar lección en Supabase (si existe el método)
+    if (authStore.completeLesson) {
+      await authStore.completeLesson(
+        currentModule.value.id,
+        currentLesson.value.id,
+        currentLesson.value.title,
+        currentLesson.value.points
+      )
+    }
+
+    // Mostrar notificación
+    if (window.addToast) {
+      window.addToast(
+        `¡Lección completada! +${currentLesson.value.points} puntos`,
+        'success',
+        3000
+      )
+    }
+
+    // Auto-avanzar a la siguiente lección
+    setTimeout(() => {
+      if (currentLessonIndex.value < lessons.value.length - 1) {
+        nextLesson()
+      }
+    }, 1500)
+
+  } catch (error) {
+    console.error('Error completando lección:', error)
+  } finally {
+    isCompletingLesson.value = false
   }
 }
 
 const nextLesson = () => {
-  if (currentLessonIndex.value < totalLessons.value - 1) {
+  if (currentLessonIndex.value < lessons.value.length - 1) {
     currentLessonIndex.value++
     resetQuizState()
   }
@@ -513,62 +594,87 @@ const previousLesson = () => {
   }
 }
 
-const completeModule = () => {
-  // Lógica para completar el módulo
+const completeModule = async () => {
+  // Completar módulo y dar achievement
+  if (authStore.awardAchievement) {
+    await authStore.awardAchievement(
+      `module_${currentModule.value.id}_complete`,
+      `Módulo Completado: ${currentModule.value.title}`,
+      `Has completado exitosamente el módulo ${currentModule.value.title}`,
+      '🎓',
+      200
+    )
+  }
+
   router.push('/dashboard')
 }
 
 const copyCode = async (code) => {
   try {
     await navigator.clipboard.writeText(code)
-    // Mostrar notificación de copiado
+    if (window.addToast) {
+      window.addToast('Código copiado al portapapeles', 'success', 2000)
+    }
   } catch (err) {
     console.error('Error copying code:', err)
   }
 }
 
-const onExerciseCompleted = () => {
-  markAsCompleted()
-}
-
-// Quiz methods
+// Quiz methods - ARREGLADOS
 const selectAnswer = (index) => {
-  if (quizAnswered.value) return
+  if (showCorrectAnswer.value) return
   selectedAnswer.value = index
-  quizAnswered.value = true
+  showCorrectAnswer.value = true
 }
 
 const nextQuestion = () => {
   if (currentQuestionIndex.value < currentLesson.value.questions.length - 1) {
+    // Siguiente pregunta
     currentQuestionIndex.value++
     resetQuizState()
   } else {
     // Quiz completado
-    markAsCompleted()
+    currentLesson.value.completed = true
+    completeLesson()
   }
 }
 
 const resetQuizState = () => {
   selectedAnswer.value = null
-  quizAnswered.value = false
+  showCorrectAnswer.value = false
   currentQuestionIndex.value = 0
 }
 
 // Lifecycle
-onMounted(() => {
-  if (!currentModule.value) {
-    router.push('/dashboard')
+onMounted(async () => {
+  if (!isAuthenticated.value) {
+    router.push('/login')
     return
   }
 
-  // Seleccionar primera lección no completada
-  const firstIncomplete = currentModule.value.lessons.findIndex(lesson => !lesson.completed && !lesson.locked)
-  if (firstIncomplete !== -1) {
-    currentLessonIndex.value = firstIncomplete
+  try {
+    isLoading.value = true
+
+    // Verificar que el módulo existe
+    if (!currentModule.value) {
+      router.push('/dashboard')
+      return
+    }
+
+    // Seleccionar primera lección no completada
+    const firstIncomplete = lessons.value.findIndex(lesson => !lesson.completed)
+    if (firstIncomplete !== -1) {
+      currentLessonIndex.value = firstIncomplete
+    }
+
+  } catch (error) {
+    console.error('Error cargando módulo:', error)
+  } finally {
+    isLoading.value = false
   }
 })
 
-// Watchers
+// Watcher para cambios de módulo
 watch(() => route.params.moduleId, () => {
   currentLessonIndex.value = 0
   resetQuizState()
@@ -576,6 +682,61 @@ watch(() => route.params.moduleId, () => {
 </script>
 
 <style lang="scss" scoped>
+// Estados de carga y error
+.loading-container,
+.error-state {
+  @include flex-center;
+  flex-direction: column;
+  min-height: 100vh;
+  text-align: center;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+.spinner,
+.mini-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid $border;
+  border-top: 2px solid $accent-blue;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.mini-spinner {
+  width: 1rem;
+  height: 1rem;
+  border-width: 1px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.error-content {
+  @include flex-center;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 400px;
+}
+
+.error-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.error-text {
+  color: $text-secondary;
+  text-align: center;
+}
+
 .module-view {
   min-height: 100vh;
   background: $primary-dark;
@@ -734,7 +895,7 @@ watch(() => route.params.moduleId, () => {
 
 .module-layout {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 320px 1fr;
   gap: 2rem;
   min-height: calc(100vh - 200px);
 
@@ -814,6 +975,11 @@ watch(() => route.params.moduleId, () => {
     height: 1.5rem;
     flex-shrink: 0;
     color: $accent-blue;
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
   }
 
   &__title {
@@ -914,71 +1080,71 @@ watch(() => route.params.moduleId, () => {
 }
 
 // Contenido teórico
-.content-section {
-  margin-bottom: 2rem;
+.theory-content {
+  .content-section {
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: $text-primary;
+      margin-bottom: 1rem;
+    }
 
-  &__title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: $text-primary;
-    margin-bottom: 1rem;
-  }
-
-  &__body {
-    color: $text-secondary;
-    line-height: 1.7;
+    h4 {
+      color: $text-primary;
+      font-weight: 600;
+      margin: 1.5rem 0 0.5rem 0;
+    }
 
     p {
+      color: $text-secondary;
+      line-height: 1.7;
       margin-bottom: 1rem;
+    }
+
+    ul,
+    ol {
+      margin: 1rem 0;
+      padding-left: 1.5rem;
+
+      li {
+        color: $text-secondary;
+        margin-bottom: 0.5rem;
+        line-height: 1.6;
+      }
     }
 
     strong {
       color: $text-primary;
     }
-  }
-}
 
-.code-example {
-  margin-top: 1.5rem;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  border: 1px solid $border;
+    .code-example {
+      margin-top: 1.5rem;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      border: 1px solid $border;
 
-  &__header {
-    @include flex-between;
-    padding: 0.75rem 1rem;
-    background: $primary-dark;
-    border-bottom: 1px solid $border;
-  }
+      &__header {
+        @include flex-between;
+        padding: 0.75rem 1rem;
+        background: $primary-dark;
+        border-bottom: 1px solid $border;
+      }
 
-  &__title {
-    font-size: 0.875rem;
-    color: $text-secondary;
-  }
+      &__title {
+        font-size: 0.875rem;
+        color: $text-secondary;
+      }
 
-  &__copy {
-    @include flex-center;
-    padding: 0.25rem;
-    background: none;
-    border: none;
-    color: $text-secondary;
-    cursor: pointer;
-    border-radius: 0.25rem;
-    @include transition();
-
-    &:hover {
-      background: $border;
-      color: $text-primary;
+      &__body {
+        padding: 1rem;
+        background: $primary-dark;
+        font-family: $font-mono;
+        font-size: 0.875rem;
+        color: $text-primary;
+        overflow-x: auto;
+        white-space: pre;
+      }
     }
-  }
-
-  &__body {
-    padding: 1rem;
-    background: $primary-dark;
-    font-family: $font-mono;
-    font-size: 0.875rem;
-    color: $text-primary;
-    overflow-x: auto;
   }
 }
 
@@ -1008,72 +1174,121 @@ watch(() => route.params.moduleId, () => {
   }
 }
 
-.terminal-container {
+// Terminal simulator
+.terminal-simulator {
   border-radius: 0.5rem;
   overflow: hidden;
-}
-
-.hints-section {
-  border-top: 1px solid $border;
-  padding-top: 1rem;
-}
-
-.hints-toggle {
-  @include flex-center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.75rem;
-  background: $tertiary-dark;
   border: 1px solid $border;
-  border-radius: 0.5rem;
-  color: $text-primary;
-  cursor: pointer;
-  @include transition();
-
-  &:hover {
-    background: #2a313a;
-  }
-
-  .rotate-180 {
-    transform: rotate(180deg);
-  }
-}
-
-.hints-content {
-  margin-top: 1rem;
-  padding: 1rem;
   background: $primary-dark;
-  border-radius: 0.5rem;
 }
 
-.hint-item {
+.terminal-header {
+  @include flex-between;
+  padding: 0.75rem 1rem;
+  background: #2d3748;
+  border-bottom: 1px solid $border;
+}
+
+.terminal-dots {
   display: flex;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+
+  &--red {
+    background: #ff5f56;
+  }
+
+  &--yellow {
+    background: #ffbd2e;
+  }
+
+  &--green {
+    background: #27ca3f;
+  }
+}
+
+.terminal-title {
+  font-size: 0.875rem;
+  color: $text-secondary;
+}
+
+.terminal-body {
+  padding: 1rem;
+}
+
+.terminal-step {
+  margin-bottom: 1.5rem;
 
   &:last-child {
     margin-bottom: 0;
   }
+}
 
-  &__number {
-    @include flex-center;
-    width: 1.5rem;
-    height: 1.5rem;
-    background: $accent-blue;
-    color: white;
-    border-radius: 50%;
-    font-size: 0.75rem;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
+.step-instruction {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
 
-  &__text {
-    color: $text-secondary;
-    line-height: 1.5;
+.step-number {
+  @include flex-center;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: $accent-blue;
+  color: white;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.step-text {
+  color: $text-secondary;
+}
+
+.step-command {
+  @include flex-center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: $secondary-dark;
+  border-radius: 0.25rem;
+  font-family: $font-mono;
+  justify-content: flex-start;
+}
+
+.prompt {
+  color: $accent-green;
+  font-weight: 600;
+}
+
+.command {
+  color: $text-primary;
+  flex: 1;
+}
+
+.copy-mini {
+  @include flex-center;
+  padding: 0.25rem;
+  background: none;
+  border: none;
+  color: $text-muted;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  @include transition();
+
+  &:hover {
+    background: $border;
+    color: $accent-blue;
   }
 }
 
-// Quiz content
+// Quiz content - MEJORADO
 .quiz-content {
   display: flex;
   flex-direction: column;
@@ -1253,6 +1468,19 @@ watch(() => route.params.moduleId, () => {
   &--small {
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
+  }
+}
+
+// Responsive
+@include mobile-only {
+  .module-layout {
+    .lessons-sidebar {
+      order: 1;
+    }
+
+    .lesson-content {
+      order: 2;
+    }
   }
 }
 </style>
